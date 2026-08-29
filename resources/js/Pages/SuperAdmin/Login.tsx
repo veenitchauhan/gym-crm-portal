@@ -1,0 +1,6 @@
+import { Form, Head } from '@inertiajs/react';
+import { Building2, LockKeyhole, ShieldCheck, User } from 'lucide-react';
+
+export default function Login() {
+    return <><Head title="Super Admin · Gym CRM Portal"/><main className="sa-login"><section className="sa-login-card"><div className="sa-login-brand"><span><ShieldCheck/></span><div><strong>Gym CRM Portal</strong><small>Super administrator</small></div></div><div className="sa-login-copy"><span>PLATFORM CONTROL</span><h1>Welcome back</h1><p>Manage gym clients, subscriptions, payments, and branding.</p></div><Form action="/super-admin/login" method="post">{({errors,processing})=><><label><span><User/> Username</span><input name="username" autoFocus autoComplete="username" placeholder="Super-admin username"/>{errors.username&&<em>{errors.username}</em>}</label><label><span><LockKeyhole/> Password</span><input name="password" type="password" autoComplete="current-password" placeholder="Password"/></label><button className="primary sa-login-button" disabled={processing}>{processing?'Signing in…':'Open super-admin dashboard'}</button></>}</Form><div className="sa-login-note"><Building2/> Separate secure access for platform operators.</div></section></main></>;
+}
