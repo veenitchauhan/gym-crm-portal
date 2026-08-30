@@ -20,11 +20,11 @@ export default function Login() {
                     {({ errors, processing }) => <>
                         <label>Email address<div className="input-with-icon"><Mail size={17}/><input name="email" type="email" autoComplete="email" autoFocus placeholder="you@example.com"/></div>{errors.email && <em>{errors.email}</em>}</label>
                         <label>Password<div className="input-with-icon"><LockKeyhole size={17}/><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password"/><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Show password"><Eye size={17}/></button></div>{errors.password && <em>{errors.password}</em>}</label>
-                        <div className="auth-options"><label><input type="checkbox" name="remember" value="1"/> Remember me</label><button type="button">Forgot password?</button></div>
+                        <div className="auth-options"><label><input type="checkbox" name="remember" value="1"/> Remember me</label></div>
                         <button className="primary auth-submit" disabled={processing}>{processing ? 'Signing in…' : 'Sign in'} <ArrowRight size={17}/></button>
                     </>}
                 </Form>
-                <p className="auth-switch">New to Gym CRM Portal? <Link href="/register">Create a member account</Link></p>
+                <p className="auth-switch">Running a gym? <Link href="/register">Create your workspace</Link></p>
             </div></section>
         </main>
     </>;

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Gym;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -16,13 +17,23 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $gym = Gym::query()->firstOrCreate(['email' => 'admin@gymcrmportal.test'], [
+            'name' => 'Downtown Club',
+            'subscription_plan' => 'Growth',
+            'subscription_status' => 'active',
+            'subscription_expires_at' => now()->addYear(),
+            'monthly_fee' => 4999,
+            'payment_status' => 'paid',
+        ]);
+
         User::query()->firstOrCreate(['email' => 'admin@gymcrmportal.test'], [
+            'gym_id' => $gym->id,
             'name' => 'Alex Morgan',
             'password' => 'password',
             'role' => UserRole::Admin,
         ]);
 
-        $this->call(DropdownOptionSeeder::class);
-        $this->call(SuperAdminSeeder::class);
+        $this->call(DropdownOptionSeeder::class, false, ['gym' => $gym]);
+        $this->call(MembershipPlanSeeder::class, false, ['gym' => $gym]);
     }
 }

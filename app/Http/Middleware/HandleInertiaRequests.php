@@ -21,11 +21,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'gym' => fn (): ?array => $request->user()?->gym ? [
                 'name' => $request->user()->gym->name,
-                'logoText' => $request->user()->gym->logo_text,
-                'primaryColor' => $request->user()->gym->primary_color,
-                'accentColor' => $request->user()->gym->accent_color,
             ] : null,
-            'impersonating' => fn (): bool => auth('super_admin')->check() && auth('web')->check(),
+            'impersonating' => fn (): bool => (bool) $request->session()->get('super_admin_authenticated', false) && auth('web')->check(),
             'flash' => ['success' => fn (): ?string => $request->session()->get('success')],
         ];
     }

@@ -16,7 +16,6 @@ class ClientImpersonationController extends Controller
      */
     public function store(Request $request, Gym $gym): RedirectResponse
     {
-        abort_unless($gym->is_active, 403, 'This client portal is disabled.');
         $administrator = $gym->users()->where('role', UserRole::Admin)->first();
 
         if (! $administrator) {

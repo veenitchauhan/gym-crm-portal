@@ -27,8 +27,11 @@ class UpdateMemberRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($this->route('member'))],
             'phone' => ['nullable', 'string', 'max:30'],
-            'membership_plan' => ['nullable', 'string', 'max:100'],
-            'membership_expires_at' => ['nullable', 'date'],
+            'membership_plan_id' => ['nullable', 'integer', Rule::exists('membership_plans', 'id')->where(fn ($query) => $query
+                ->where('gym_id', $this->user()->gym_id)
+                ->where('is_active', true))],
+            'membership_starts_at' => ['nullable', 'date'],
+            'membership_ends_at' => ['nullable', 'date', 'after_or_equal:membership_starts_at'],
         ];
     }
 }

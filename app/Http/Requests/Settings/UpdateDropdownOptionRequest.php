@@ -24,8 +24,11 @@ class UpdateDropdownOptionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'label' => ['required', 'string', 'max:100', Rule::unique('dropdown_options')->where('category', $this->route('dropdown_option')->category->value)->ignore($this->route('dropdown_option'))],
+            'label' => ['required', 'string', 'max:100', Rule::unique('dropdown_options')->where(fn ($query) => $query
+                ->where('gym_id', $this->user()->gym_id)
+                ->where('category', $this->route('dropdown_option')->category->value))->ignore($this->route('dropdown_option'))],
             'is_active' => ['required', 'boolean'],
+            'amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 }

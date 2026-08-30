@@ -28,6 +28,16 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        $user = $request->user()->loadMissing('gym');
+
+        if ($user->gym && ! $user->gym->is_active) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'This gym account is disabled. Contact the platform administrator.',
+            ]);
+        }
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));

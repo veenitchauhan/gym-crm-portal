@@ -29,9 +29,10 @@ class BulkUpdateDropdownOptionsRequest extends FormRequest
         return [
             'category' => ['required', Rule::enum(DropdownCategory::class)],
             'options' => ['required', 'array'],
-            'options.*.id' => ['required', 'integer', 'distinct', Rule::exists('dropdown_options', 'id')],
+            'options.*.id' => ['required', 'integer', 'distinct', Rule::exists('dropdown_options', 'id')->where('gym_id', $this->user()->gym_id)],
             'options.*.label' => ['required', 'string', 'max:100'],
             'options.*.is_active' => ['required', 'boolean'],
+            'options.*.amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 
@@ -44,6 +45,7 @@ class BulkUpdateDropdownOptionsRequest extends FormRequest
 
             $ids = collect($this->input('options'))->pluck('id');
             $matchingCount = DropdownOption::query()
+                ->where('gym_id', $this->user()->gym_id)
                 ->where('category', $this->string('category')->toString())
                 ->whereIn('id', $ids)
                 ->count();

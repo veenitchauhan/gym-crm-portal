@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureSuperAdminAuthenticated;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -15,7 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [HandleInertiaRequests::class]);
-        $middleware->alias(['role' => EnsureUserHasRole::class]);
+        $middleware->alias([
+            'role' => EnsureUserHasRole::class,
+            'super_admin' => EnsureSuperAdminAuthenticated::class,
+        ]);
         $middleware->redirectGuestsTo(fn (Request $request): string => $request->is('super-admin/*')
             ? route('super-admin.login')
             : route('login'));

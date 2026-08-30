@@ -1,11 +1,11 @@
 import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Components/AdminLayout';
 import FlashNotification from '@/Components/FlashNotification';
-import { ArrowLeft, Bell, Database, Dumbbell, KeyRound, Plus, Save, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { ArrowLeft, Database, Dumbbell, KeyRound, Plus, Save, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import { useState } from 'react';
 
 type User = { name: string; email: string; phone: string | null; role: 'admin' | 'member' };
-type DropdownOption = { id: number; label: string; is_active: boolean };
+type DropdownOption = { id: number; label: string; is_active: boolean; amount: number | null };
 type DropdownCategory = { key: string; label: string; options: DropdownOption[] };
 
 export default function Profile({ user, dropdownCategories = [] }: { user: User; dropdownCategories?: DropdownCategory[] }) {
@@ -23,7 +23,7 @@ export default function Profile({ user, dropdownCategories = [] }: { user: User;
 
     return <><Head title="Account settings · Gym CRM Portal"/><div className="settings-shell">
         <header className="settings-top"><Link href={home} className="auth-brand dark"><span><Dumbbell size={18}/></span>{gymName}</Link><Link href={home}><ArrowLeft size={17}/> Back to dashboard</Link></header>
-        <main className="settings-content"><aside><span className="eyebrow">ACCOUNT</span><h1>Settings</h1><p>Manage your personal information and security.</p><nav><a href="#profile" className="active"><UserRound/> Profile</a><a href="#password"><KeyRound/> Password</a><button><Bell/> Notifications</button></nav></aside>{settingsPanels}</main>
+        <main className="settings-content"><aside><span className="eyebrow">ACCOUNT</span><h1>Settings</h1><p>Manage your personal information and security.</p><nav><a href="#profile" className="active"><UserRound/> Profile</a><a href="#password"><KeyRound/> Password</a></nav></aside>{settingsPanels}</main>
         <FlashNotification/>
     </div></>;
 }
@@ -54,14 +54,14 @@ function DropdownManager({ category }: { category: DropdownCategory }) {
 
     return <section className="card dropdown-manager">
         <div className="settings-card-head dropdown-manager-head"><span><Database/></span><div><h2>{category.label}</h2><p>These values appear in portal forms and dropdowns immediately.</p></div><button className="primary" onClick={saveAll} disabled={saving || options.length === 0}><Save/>{saving ? 'Saving…' : 'Save all changes'}</button></div>
-        <Form action="/settings/dropdown-options" method="post" resetOnSuccess className="dropdown-create">{({ errors, processing }) => <><input type="hidden" name="category" value={category.key}/><label>New option<input name="label" placeholder={`Add to ${category.label.toLowerCase()}`} required/>{errors.label && <em>{errors.label}</em>}</label><button className="primary" disabled={processing}><Plus/> Add option</button></>}</Form>
-        <div className="dropdown-list">{options.length === 0 ? <div className="compact-empty"><Database/><strong>No options yet</strong><span>Add the first value for this dropdown.</span></div> : options.map(option => <DropdownRow key={option.id} option={option} update={changes => updateOption(option.id, changes)}/>)}</div>
+        <Form action="/settings/dropdown-options" method="post" resetOnSuccess className={`dropdown-create ${category.key === 'membership_plans' ? 'with-amount' : ''}`}>{({ errors, processing }) => <><input type="hidden" name="category" value={category.key}/><label>New option<input name="label" placeholder={`Add to ${category.label.toLowerCase()}`} required/>{errors.label && <em>{errors.label}</em>}</label>{category.key === 'membership_plans' && <label>Amount (₹)<input name="amount" type="number" min="0" step="0.01" placeholder="Enter amount" required/>{errors.amount && <em>{errors.amount}</em>}</label>}<button className="primary" disabled={processing}><Plus/> Add option</button></>}</Form>
+        <div className={`dropdown-list ${category.key === 'membership_plans' ? 'membership-plan-options' : ''}`}>{options.length === 0 ? <div className="compact-empty"><Database/><strong>No options yet</strong><span>Add the first value for this dropdown.</span></div> : options.map(option => <DropdownRow key={option.id} option={option} showAmount={category.key === 'membership_plans'} update={changes => updateOption(option.id, changes)}/>)}</div>
     </section>;
 }
 
-function DropdownRow({ option, update }: { option: DropdownOption; update: (changes: Partial<DropdownOption>) => void }) {
-    const save = () => router.put(`/settings/dropdown-options/${option.id}`, { label: option.label, is_active: option.is_active }, { preserveScroll: true });
+function DropdownRow({ option, showAmount, update }: { option: DropdownOption; showAmount: boolean; update: (changes: Partial<DropdownOption>) => void }) {
+    const save = () => router.put(`/settings/dropdown-options/${option.id}`, { label: option.label, amount: option.amount, is_active: option.is_active }, { preserveScroll: true });
     const remove = () => window.confirm(`Delete “${option.label}”?`) && router.delete(`/settings/dropdown-options/${option.id}`, { preserveScroll: true });
 
-    return <div className="dropdown-row"><input value={option.label} onChange={event => update({ label: event.target.value })}/><label className="status-toggle"><input type="checkbox" checked={option.is_active} onChange={event => update({ is_active: event.target.checked })}/><span>{option.is_active ? 'Active' : 'Inactive'}</span></label><button className="secondary" onClick={save}><Save/> Save</button><button className="danger-icon" onClick={remove} aria-label={`Delete ${option.label}`}><Trash2/></button></div>;
+    return <div className="dropdown-row"><input aria-label="Plan or option name" value={option.label} onChange={event => update({ label: event.target.value })}/>{showAmount && <input aria-label={`${option.label} amount`} type="number" min="0" step="0.01" value={option.amount ?? ''} onChange={event => update({ amount: event.target.value === '' ? null : Number(event.target.value) })}/>}<label className="status-toggle"><input type="checkbox" checked={option.is_active} onChange={event => update({ is_active: event.target.checked })}/><span>{option.is_active ? 'Active' : 'Inactive'}</span></label><button className="secondary" onClick={save}><Save/> Save</button><button className="danger-icon" onClick={remove} aria-label={`Delete ${option.label}`}><Trash2/></button></div>;
 }

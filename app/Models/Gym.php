@@ -12,7 +12,7 @@ class Gym extends Model
     /** @use HasFactory<GymFactory> */
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'email', 'phone', 'subscription_plan', 'subscription_status', 'subscription_expires_at', 'monthly_fee', 'payment_status', 'logo_text', 'primary_color', 'accent_color', 'is_active'];
+    protected $fillable = ['name', 'email', 'phone', 'subscription_plan', 'subscription_status', 'subscription_expires_at', 'monthly_fee', 'payment_status', 'is_active'];
 
     protected function casts(): array
     {
@@ -22,5 +22,50 @@ class Gym extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function dropdownOptions(): HasMany
+    {
+        return $this->hasMany(DropdownOption::class);
+    }
+
+    public function membershipPlans(): HasMany
+    {
+        return $this->hasMany(MembershipPlan::class);
+    }
+
+    public function membershipSubscriptions(): HasMany
+    {
+        return $this->hasMany(MembershipSubscription::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function trainers(): HasMany
+    {
+        return $this->hasMany(Trainer::class);
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(GymSession::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class);
     }
 }

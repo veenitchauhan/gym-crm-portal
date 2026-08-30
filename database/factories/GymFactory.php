@@ -19,7 +19,6 @@ class GymFactory extends Factory
     {
         return [
             'name' => fake()->company().' Fitness',
-            'slug' => fake()->unique()->slug(2),
             'email' => fake()->companyEmail(),
             'phone' => fake()->phoneNumber(),
             'subscription_plan' => 'Growth',
@@ -27,9 +26,6 @@ class GymFactory extends Factory
             'subscription_expires_at' => now()->addYear(),
             'monthly_fee' => 4999,
             'payment_status' => 'paid',
-            'logo_text' => fake()->word(),
-            'primary_color' => '#7357e8',
-            'accent_color' => '#202126',
             'is_active' => true,
         ];
     }

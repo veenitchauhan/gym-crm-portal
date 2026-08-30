@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Settings;
 use App\DropdownCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
-use App\Models\DropdownOption;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -17,11 +16,26 @@ class ProfileController extends Controller
 {
     public function edit(Request $request): Response
     {
-        $categories = $request->user()->isAdmin()
-            ? collect(DropdownCategory::cases())->map(fn (DropdownCategory $category): array => [
+        $usedDropdownCategories = [
+            DropdownCategory::MembershipPlan,
+            DropdownCategory::PaymentMethod,
+            DropdownCategory::TrainerSpecialty,
+            DropdownCategory::SessionType,
+            DropdownCategory::LeadInterest,
+        ];
+
+        $membershipPlanPrices = $request->user()->gym?->membershipPlans()->pluck('price', 'name') ?? collect();
+        $categories = $request->user()->isAdmin() && $request->user()->gym
+            ? collect($usedDropdownCategories)->map(fn (DropdownCategory $category): array => [
                 'key' => $category->value,
                 'label' => $category->label(),
-                'options' => DropdownOption::query()->where('category', $category)->ordered()->get(['id', 'label', 'is_active']),
+                'options' => $request->user()->gym->dropdownOptions()->where('category', $category)->ordered()->get(['id', 'label', 'is_active'])
+                    ->map(fn ($option): array => [
+                        ...$option->only(['id', 'label', 'is_active']),
+                        'amount' => $category === DropdownCategory::MembershipPlan
+                            ? (float) ($membershipPlanPrices[$option->label] ?? 0)
+                            : null,
+                    ]),
             ])
             : [];
 

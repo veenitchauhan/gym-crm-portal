@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\DropdownCategory;
 use App\Models\DropdownOption;
+use App\Models\Gym;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -19,6 +20,7 @@ class DropdownOptionFactory extends Factory
     public function definition(): array
     {
         return [
+            'gym_id' => Gym::factory(),
             'category' => DropdownCategory::MembershipPlan,
             'label' => fake()->unique()->words(2, true),
             'is_active' => true,

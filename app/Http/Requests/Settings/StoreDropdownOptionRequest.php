@@ -26,8 +26,11 @@ class StoreDropdownOptionRequest extends FormRequest
     {
         return [
             'category' => ['required', Rule::enum(DropdownCategory::class)],
-            'label' => ['required', 'string', 'max:100', Rule::unique('dropdown_options')->where('category', $this->string('category')->toString())],
+            'label' => ['required', 'string', 'max:100', Rule::unique('dropdown_options')->where(fn ($query) => $query
+                ->where('gym_id', $this->user()->gym_id)
+                ->where('category', $this->string('category')->toString()))],
             'is_active' => ['sometimes', 'boolean'],
+            'amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 }

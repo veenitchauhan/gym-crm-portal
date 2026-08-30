@@ -14,7 +14,7 @@ class PublicHomeController extends Controller
      */
     public function __invoke(Request $request): Response|RedirectResponse
     {
-        if (auth('super_admin')->check()) {
+        if ((bool) $request->session()->get('super_admin_authenticated', false)) {
             return redirect()->route('super-admin.gyms.index');
         }
 
