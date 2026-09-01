@@ -17,7 +17,7 @@ class ActiveGymControllerTest extends TestCase
 
     public function test_administrator_can_switch_to_an_assigned_gym(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create();
         $branchGym = Gym::factory()->for($organization)->create(['name' => 'North Branch']);
         $administrator = User::factory()->for($primaryGym)->admin()->create();
@@ -32,7 +32,7 @@ class ActiveGymControllerTest extends TestCase
 
     public function test_administrator_cannot_switch_to_a_disabled_branch(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create();
         $disabledBranch = Gym::factory()->for($organization)->create(['is_active' => false]);
         $administrator = User::factory()->for($primaryGym)->admin()->create();
@@ -56,7 +56,7 @@ class ActiveGymControllerTest extends TestCase
             ->assertSessionHas(ResolveActiveGym::SESSION_KEY, $primaryGym->id);
     }
 
-    public function test_member_cannot_switch_gym_locations(): void
+    public function test_member_cannot_switch_gym_branches(): void
     {
         $member = User::factory()->member()->create();
 
@@ -75,7 +75,7 @@ class ActiveGymControllerTest extends TestCase
 
     public function test_admin_pages_show_data_from_the_active_gym_only(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create(['name' => 'Central Gym']);
         $branchGym = Gym::factory()->for($organization)->create(['name' => 'North Gym']);
         $administrator = User::factory()->for($primaryGym)->admin()->create();
@@ -89,15 +89,15 @@ class ActiveGymControllerTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('gym.id', $branchGym->id)
                 ->where('gym.name', 'North Gym')
-                ->where('locationAccess.activeGymId', $branchGym->id)
-                ->has('locationAccess.gyms', 2)
+                ->where('branchAccess.activeGymId', $branchGym->id)
+                ->has('branchAccess.gyms', 2)
                 ->has('members', 1)
                 ->where('members.0.id', $branchMember->id));
     }
 
-    public function test_removed_location_access_falls_back_to_the_primary_gym(): void
+    public function test_removed_branch_access_falls_back_to_the_primary_gym(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create();
         $branchGym = Gym::factory()->for($organization)->create();
         $administrator = User::factory()->for($primaryGym)->admin()->create();
@@ -113,7 +113,7 @@ class ActiveGymControllerTest extends TestCase
 
     public function test_new_records_are_created_in_the_active_gym(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create();
         $branchGym = Gym::factory()->for($organization)->create();
         $administrator = User::factory()->for($primaryGym)->admin()->create();
@@ -137,7 +137,7 @@ class ActiveGymControllerTest extends TestCase
 
     public function test_assigned_branch_resources_are_hidden_until_that_branch_is_active(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create();
         $branchGym = Gym::factory()->for($organization)->create();
         $administrator = User::factory()->for($primaryGym)->admin()->create();
@@ -162,7 +162,7 @@ class ActiveGymControllerTest extends TestCase
 
     public function test_profile_updates_do_not_replace_the_administrators_primary_gym(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         $primaryGym = Gym::factory()->for($organization)->create();
         $branchGym = Gym::factory()->for($organization)->create();
         $administrator = User::factory()->for($primaryGym)->admin()->create();

@@ -7,14 +7,18 @@ use App\Http\Requests\Admin\ConvertLeadRequest;
 use App\Http\Requests\Admin\StoreLeadRequest;
 use App\Http\Requests\Admin\UpdateLeadRequest;
 use App\LeadStatus;
+use App\Mail\MemberPlanStarted;
 use App\MembershipStatus;
 use App\Models\Lead;
 use App\Models\MembershipPlan;
+use App\Models\MembershipSubscription;
+use App\Models\User;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class LeadController extends Controller
 {
@@ -59,7 +63,7 @@ class LeadController extends Controller
             return back()->withErrors(['lead' => 'This lead has already been converted.']);
         }
 
-        DB::transaction(function () use ($request, $lead): void {
+        [$member, $startedMembership] = DB::transaction(function () use ($request, $lead): array {
             $member = $request->user()->gym->users()->create([
                 'name' => $lead->name,
                 'email' => $request->validated('email'),
@@ -68,10 +72,12 @@ class LeadController extends Controller
                 'role' => UserRole::Member,
             ]);
 
+            $startedMembership = null;
+
             if ($request->validated('membership_plan_id')) {
                 $plan = MembershipPlan::query()->where('gym_id', $member->gym_id)->findOrFail($request->validated('membership_plan_id'));
                 $startsAt = $request->validated('membership_starts_at') ? Carbon::parse($request->validated('membership_starts_at')) : today();
-                $member->membershipSubscriptions()->create([
+                $startedMembership = $member->membershipSubscriptions()->create([
                     'gym_id' => $member->gym_id,
                     'membership_plan_id' => $plan->id,
                     'starts_at' => $startsAt,
@@ -86,7 +92,11 @@ class LeadController extends Controller
                 'status' => LeadStatus::Converted,
                 'next_follow_up_at' => null,
             ]);
+
+            return [$member, $startedMembership];
         });
+
+        $this->sendPlanStartedEmail($member, $startedMembership);
 
         return back()->with('success', 'Lead converted to member successfully.');
     }
@@ -94,5 +104,20 @@ class LeadController extends Controller
     private function ensureLeadBelongsToAdminGym(Request $request, Lead $lead): void
     {
         abort_unless($lead->gym_id === $request->user()->gym_id, 404);
+    }
+
+    private function sendPlanStartedEmail(User $member, ?MembershipSubscription $subscription): void
+    {
+        if (! $subscription) {
+            return;
+        }
+
+        $subscription->loadMissing(['gym', 'membershipPlan']);
+
+        Mail::to($member)->send(new MemberPlanStarted(
+            member: $member,
+            subscription: $subscription,
+            actionUrl: route('member.dashboard'),
+        ));
     }
 }

@@ -27,26 +27,29 @@ class OrganizationController extends Controller
                 ->orderBy('name'),
         ]);
 
-        $primaryLocation = $organization->gyms->firstOrFail();
+        $primaryGym = $organization->gyms->firstOrFail();
 
         return Inertia::render('SuperAdmin/OrganizationShow', [
             'client' => [
                 'id' => $organization->id,
                 'name' => $organization->name,
-                'multi_location_enabled' => $organization->multi_location_enabled,
-                'subscription_plan' => $primaryLocation->subscription_plan,
-                'subscription_status' => $primaryLocation->subscription_status,
-                'subscription_expires_at' => $primaryLocation->subscription_expires_at,
-                'monthly_fee' => $primaryLocation->monthly_fee,
-                'payment_status' => $primaryLocation->payment_status,
+                'multi_branch_enabled' => $organization->multi_branch_enabled,
+                'subscription_plan' => $primaryGym->subscription_plan,
+                'subscription_status' => $primaryGym->subscription_status,
+                'subscription_expires_at' => $primaryGym->subscription_expires_at,
+                'monthly_fee' => $primaryGym->monthly_fee,
+                'payment_status' => $primaryGym->payment_status,
                 'members_count' => $organization->gyms->sum('members_count'),
-                'locations' => $organization->gyms->map(fn (Gym $gym): array => [
+                'primary_gym' => [
+                    'id' => $primaryGym->id,
+                    'name' => $primaryGym->name,
+                ],
+                'branches' => $organization->gyms->skip(1)->map(fn (Gym $gym): array => [
                     'id' => $gym->id,
                     'name' => $gym->name,
                     'email' => $gym->email,
                     'phone' => $gym->phone,
                     'is_active' => $gym->is_active,
-                    'is_primary' => $gym->is($primaryLocation),
                     'administrators_count' => $gym->assigned_administrators_count,
                     'members_count' => $gym->members_count,
                 ])->values(),
@@ -54,12 +57,18 @@ class OrganizationController extends Controller
                     'id' => $administrator->id,
                     'name' => $administrator->name,
                     'email' => $administrator->email,
-                    'location_ids' => $administrator->accessibleGyms->pluck('id')->values(),
+                    'phone' => $administrator->phone,
+                    'must_change_password' => $administrator->must_change_password,
+                    'branch_ids' => $administrator->accessibleGyms
+                        ->whereNotIn('id', [$primaryGym->id])
+                        ->pluck('id')
+                        ->values(),
                 ])->values(),
             ],
             'superAdmin' => [
                 'name' => config('super-admin.name'),
                 'username' => config('super-admin.username'),
+                'temporaryPassword' => config('super-admin.client_temporary_password'),
             ],
         ]);
     }

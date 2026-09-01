@@ -14,11 +14,11 @@ class MembershipPlan extends Model
     /** @use HasFactory<MembershipPlanFactory> */
     use HasFactory;
 
-    protected $fillable = ['gym_id', 'name', 'price', 'billing_cycle', 'duration_days', 'is_active'];
+    protected $fillable = ['gym_id', 'name', 'price', 'minimum_payment_amount', 'billing_cycle', 'duration_days', 'is_active'];
 
     protected function casts(): array
     {
-        return ['price' => 'decimal:2', 'duration_days' => 'integer', 'is_active' => 'boolean'];
+        return ['price' => 'decimal:2', 'minimum_payment_amount' => 'decimal:2', 'duration_days' => 'integer', 'is_active' => 'boolean'];
     }
 
     public static function syncDropdownOptionsForGym(Gym $gym): void
@@ -30,7 +30,7 @@ class MembershipPlan extends Model
             ->each(function (DropdownOption $option) use ($gym): void {
                 $plan = $gym->membershipPlans()->firstOrCreate(
                     ['name' => $option->label],
-                    ['price' => 0, 'billing_cycle' => 'Not configured', 'duration_days' => 0, 'is_active' => $option->is_active],
+                    ['price' => 0, 'minimum_payment_amount' => 0, 'billing_cycle' => 'Not configured', 'duration_days' => 0, 'is_active' => $option->is_active],
                 );
 
                 $plan->update(['is_active' => $option->is_active]);

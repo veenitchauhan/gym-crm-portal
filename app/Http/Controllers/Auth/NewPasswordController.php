@@ -31,6 +31,7 @@ class NewPasswordController extends Controller
             function (User $user, string $password): void {
                 $user->forceFill([
                     'password' => Hash::make($password),
+                    'must_change_password' => false,
                     'remember_token' => Str::random(60),
                 ])->save();
 

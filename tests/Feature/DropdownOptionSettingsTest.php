@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\DropdownCategory;
 use App\Models\DropdownOption;
 use App\Models\Gym;
+use App\Models\MembershipPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -64,6 +65,77 @@ class DropdownOptionSettingsTest extends TestCase
 
         $this->assertDatabaseHas('dropdown_options', ['id' => $first->id, 'label' => 'Cash payment', 'is_active' => false, 'position' => 1]);
         $this->assertDatabaseHas('dropdown_options', ['id' => $second->id, 'label' => 'Card payment', 'is_active' => true, 'position' => 2]);
+    }
+
+    public function test_admin_can_save_plan_amount_and_minimum_payment_amount(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $option = DropdownOption::factory()->for($admin->gym)->create([
+            'category' => DropdownCategory::MembershipPlan,
+            'label' => 'Flexible monthly',
+        ]);
+        $plan = MembershipPlan::factory()->for($admin->gym)->create([
+            'name' => 'Flexible monthly',
+            'price' => 1000,
+            'minimum_payment_amount' => 100,
+        ]);
+
+        $this->actingAs($admin)->put('/settings/dropdown-options', [
+            'category' => DropdownCategory::MembershipPlan->value,
+            'options' => [[
+                'id' => $option->id,
+                'label' => 'Flexible monthly',
+                'amount' => 1200,
+                'minimumAmount' => 300,
+                'is_active' => true,
+            ]],
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $plan->refresh();
+        $this->assertSame('1200.00', $plan->price);
+        $this->assertSame('300.00', $plan->minimum_payment_amount);
+    }
+
+    public function test_admin_can_create_a_plan_with_a_minimum_payment_amount(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->post('/settings/dropdown-options', [
+            'category' => DropdownCategory::MembershipPlan->value,
+            'label' => 'Student plan',
+            'amount' => 900,
+            'minimumAmount' => 250,
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('membership_plans', [
+            'gym_id' => $admin->gym_id,
+            'name' => 'Student plan',
+            'price' => 900,
+            'minimum_payment_amount' => 250,
+        ]);
+    }
+
+    public function test_settings_expose_the_saved_plan_minimum_payment_amount(): void
+    {
+        $admin = User::factory()->admin()->create();
+        DropdownOption::factory()->for($admin->gym)->create([
+            'category' => DropdownCategory::MembershipPlan,
+            'label' => 'Flexible monthly',
+        ]);
+        MembershipPlan::factory()->for($admin->gym)->create([
+            'name' => 'Flexible monthly',
+            'price' => 1200,
+            'minimum_payment_amount' => 300,
+        ]);
+
+        $this->actingAs($admin)->get('/settings/profile')->assertInertia(fn (Assert $page) => $page
+            ->component('Settings/Profile')
+            ->where('dropdownCategories', function ($categories): bool {
+                $membershipCategory = collect($categories)->firstWhere('key', DropdownCategory::MembershipPlan->value);
+
+                return (float) collect($membershipCategory['options'])
+                    ->firstWhere('label', 'Flexible monthly')['minimumAmount'] === 300.0;
+            }));
     }
 
     public function test_dropdown_labels_must_be_unique_within_their_category(): void

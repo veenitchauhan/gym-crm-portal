@@ -21,7 +21,7 @@ type Props = {
 };
 
 export default function AdminLayout({ activeSection, children, user }: Props) {
-    const { gym, impersonating, locationAccess } = usePage<{ gym: { id: number; name: string } | null; impersonating: boolean; locationAccess: { activeGymId: number | null; gyms: { id: number; name: string }[] } | null }>().props;
+    const { gym, impersonating, branchAccess } = usePage<{ gym: { id: number; name: string } | null; impersonating: boolean; branchAccess: { activeGymId: number | null; gyms: { id: number; name: string }[] } | null }>().props;
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState('');
     const initials = user.name.split(' ').map(part => part[0]).slice(0, 2).join('');
@@ -38,7 +38,7 @@ export default function AdminLayout({ activeSection, children, user }: Props) {
         <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
             <Link href="/admin/dashboard" className="brand"><span className="brand-mark"><Dumbbell size={20}/></span><span>{branding.name}</span></Link>
             <button className="close-menu" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X/></button>
-            <div className="location"><div><small>MANAGING</small>{locationAccess && locationAccess.gyms.length > 1 ? <SelectDropdown className="location-select" aria-label="Active gym location" value={locationAccess.activeGymId ?? ''} onChange={event => switchGym(event.target.value)}>{locationAccess.gyms.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</SelectDropdown> : <strong>{branding.name}</strong>}</div><Link className={`location-settings ${activeSection === 'Settings' ? 'active' : ''}`} href="/settings/profile" aria-label="Open settings" title="Settings"><Settings size={19}/></Link></div>
+            <div className="branch-switcher"><div><small>MANAGING</small>{branchAccess && branchAccess.gyms.length > 1 ? <SelectDropdown className="branch-select" aria-label="Active gym branch" value={branchAccess.activeGymId ?? ''} onChange={event => switchGym(event.target.value)}>{branchAccess.gyms.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectDropdown> : <strong>{branding.name}</strong>}</div><Link className={`branch-settings ${activeSection === 'Settings' ? 'active' : ''}`} href="/settings/profile" aria-label="Open settings" title="Settings"><Settings size={19}/></Link></div>
             <nav>
                 <small className="nav-label">WORKSPACE</small>
                 {navigation.map(([label, href, Icon]) => <Link key={label} href={href} className={activeSection === label ? 'active' : ''} onClick={() => setMenuOpen(false)}><Icon size={19}/><span>{label}</span></Link>)}

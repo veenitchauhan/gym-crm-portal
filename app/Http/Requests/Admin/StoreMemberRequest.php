@@ -4,7 +4,6 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class StoreMemberRequest extends FormRequest
 {
@@ -27,7 +26,6 @@ class StoreMemberRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'password' => ['required', 'confirmed', Password::min(8)],
             'membership_plan_id' => ['nullable', 'integer', Rule::exists('membership_plans', 'id')->where(fn ($query) => $query
                 ->where('gym_id', $this->user()->gym_id)
                 ->where('is_active', true))],

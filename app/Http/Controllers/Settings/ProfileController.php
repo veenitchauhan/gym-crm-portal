@@ -24,7 +24,9 @@ class ProfileController extends Controller
             DropdownCategory::LeadInterest,
         ];
 
-        $membershipPlanPrices = $request->user()->gym?->membershipPlans()->pluck('price', 'name') ?? collect();
+        $membershipPlans = $request->user()->gym?->membershipPlans()
+            ->get(['name', 'price', 'minimum_payment_amount'])
+            ->keyBy('name') ?? collect();
         $categories = $request->user()->isAdmin() && $request->user()->gym
             ? collect($usedDropdownCategories)->map(fn (DropdownCategory $category): array => [
                 'key' => $category->value,
@@ -33,7 +35,10 @@ class ProfileController extends Controller
                     ->map(fn ($option): array => [
                         ...$option->only(['id', 'label', 'is_active']),
                         'amount' => $category === DropdownCategory::MembershipPlan
-                            ? (float) ($membershipPlanPrices[$option->label] ?? 0)
+                            ? (float) ($membershipPlans[$option->label]?->price ?? 0)
+                            : null,
+                        'minimumAmount' => $category === DropdownCategory::MembershipPlan
+                            ? (float) ($membershipPlans[$option->label]?->minimum_payment_amount ?? 0)
                             : null,
                     ]),
             ])
@@ -59,7 +64,10 @@ class ProfileController extends Controller
             'password' => ['required', 'confirmed', Password::min(8)],
         ]);
 
-        $request->user()->update(['password' => Hash::make($validated['password'])]);
+        $request->user()->update([
+            'password' => Hash::make($validated['password']),
+            'must_change_password' => false,
+        ]);
 
         return back()->with('success', 'Password updated successfully.');
     }

@@ -8,7 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateAdministratorLocationsRequest extends FormRequest
+class UpdateGymBranchRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -27,22 +27,20 @@ class UpdateAdministratorLocationsRequest extends FormRequest
     {
         /** @var Organization $organization */
         $organization = $this->route('organization');
+        /** @var Gym $branch */
+        $branch = $this->route('branch');
 
         return [
-            'location_ids' => ['sometimes', 'array'],
-            'location_ids.*' => [
+            'name' => [
                 'required',
-                'integer',
-                'distinct',
-                Rule::exists((new Gym)->getTable(), 'id')->where('organization_id', $organization->id),
+                'string',
+                'max:150',
+                Rule::unique('gyms', 'name')
+                    ->where('organization_id', $organization->id)
+                    ->ignore($branch),
             ],
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'location_ids.*.exists' => 'Every selected gym must belong to this client.',
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
         ];
     }
 }

@@ -16,14 +16,14 @@ class HandleInertiaRequests extends Middleware
             'appName' => config('app.name'),
             'auth' => [
                 'user' => $request->user()?->only([
-                    'id', 'name', 'email', 'role', 'phone', 'membership_plan', 'membership_expires_at',
+                    'id', 'name', 'email', 'role', 'phone', 'membership_plan', 'membership_expires_at', 'must_change_password',
                 ]),
             ],
             'gym' => fn (): ?array => $request->attributes->get('active_gym') ? [
                 'id' => $request->attributes->get('active_gym')->id,
                 'name' => $request->attributes->get('active_gym')->name,
             ] : null,
-            'locationAccess' => function () use ($request): ?array {
+            'branchAccess' => function () use ($request): ?array {
                 if (! $request->user()?->isAdmin()) {
                     return null;
                 }

@@ -57,4 +57,35 @@ class ProfileSettingsTest extends TestCase
 
         $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
     }
+
+    public function test_client_administrator_with_a_temporary_password_must_change_it_before_using_the_portal(): void
+    {
+        $user = User::factory()->admin()->create([
+            'password' => Hash::make('P@ssw0rd'),
+            'must_change_password' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/admin/dashboard')
+            ->assertRedirect(route('settings.profile.edit').'#password');
+
+        $this->actingAs($user)
+            ->get('/settings/profile')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Settings/Profile')
+                ->where('user.must_change_password', true));
+
+        $this->actingAs($user)->put('/settings/password', [
+            'current_password' => 'P@ssw0rd',
+            'password' => 'new-private-password',
+            'password_confirmation' => 'new-private-password',
+        ])->assertRedirect()->assertSessionHas('success', 'Password updated successfully.');
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('new-private-password', $user->password));
+        $this->assertFalse($user->must_change_password);
+
+        $this->actingAs($user)->get('/admin/dashboard')->assertOk();
+    }
 }

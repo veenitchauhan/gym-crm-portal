@@ -31,6 +31,7 @@ class StoreDropdownOptionRequest extends FormRequest
                 ->where('category', $this->string('category')->toString()))],
             'is_active' => ['sometimes', 'boolean'],
             'amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'minimumAmount' => [Rule::requiredIf($this->string('category')->toString() === DropdownCategory::MembershipPlan->value), 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 }

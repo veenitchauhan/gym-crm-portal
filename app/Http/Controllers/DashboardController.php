@@ -125,6 +125,8 @@ class DashboardController extends Controller
                     'id' => $member->id,
                     'name' => $member->name,
                     'plan' => $member->latestMembershipSubscription?->membershipPlan->name,
+                    'planPrice' => $member->latestMembershipSubscription?->membershipPlan->price,
+                    'planMinimumAmount' => $member->latestMembershipSubscription?->membershipPlan->minimum_payment_amount,
                 ]),
             'payments' => $gym->payments()
                 ->with(['member:id,name', 'membershipSubscription.membershipPlan:id,name'])

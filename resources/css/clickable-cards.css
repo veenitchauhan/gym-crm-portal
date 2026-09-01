@@ -1,0 +1,336 @@
+.metric-link {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.metric-link:hover,
+.metric-link:focus-visible {
+    border-color: #bdb1f2;
+    box-shadow: 0 10px 24px rgb(53 39 111 / 10%);
+    outline: 0;
+    transform: translateY(-2px);
+}
+
+.sa-stats .sa-stat-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 17px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: #fff;
+}
+
+.sa-stats .sa-stat-link > svg {
+    width: 39px;
+    height: 39px;
+    padding: 9px;
+    border-radius: 10px;
+    background: #eeeaff;
+    color: #684ed3;
+}
+
+.sa-stats .sa-stat-link div {
+    display: flex;
+    flex-direction: column;
+}
+
+.sa-branch-metrics > a {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.sa-branch-metrics > a > svg {
+    width: 39px;
+    height: 39px;
+    padding: 9px;
+    border-radius: 10px;
+    background: #eeeaff;
+    color: #674bd4;
+}
+
+.sa-branch-metrics > a > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.member-stats > a {
+    display: flex;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+}
+
+.member-stats > a > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.section-anchor {
+    position: relative;
+    top: -85px;
+    visibility: hidden;
+}
+
+.sa-member-directory-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 15px;
+}
+
+.sa-member-directory-toolbar label {
+    display: flex;
+    width: min(480px, 100%);
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid #d9d9df;
+    border-radius: 9px;
+    background: #fff;
+    box-shadow: 0 2px 7px rgb(32 33 38 / 4%);
+}
+
+.sa-member-directory-toolbar svg {
+    width: 17px;
+    color: #8b8d95;
+}
+
+.sa-member-directory-toolbar input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+}
+
+.sa-member-directory.platform .sa-member-directory-row {
+    min-width: 1100px;
+    grid-template-columns: 1.5fr .9fr 1fr 1fr .65fr .7fr;
+}
+
+.sa-member-client-link {
+    color: #654bd2;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+@media (max-width: 650px) {
+    .sa-member-directory-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
+
+.sa-administrator-list form {
+    overflow: hidden;
+    padding: 0;
+    border-color: #dedee4;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgb(32 33 38 / 5%);
+}
+
+.sa-administrator-list .sa-administrator-head {
+    align-items: center;
+    padding: 18px;
+}
+
+.sa-administrator-head > .sa-administrator-identity {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    gap: 11px;
+}
+
+.sa-administrator-identity > .avatar {
+    width: 42px;
+    height: 42px;
+}
+
+.sa-administrator-identity > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sa-administrator-identity strong {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    font: 800 16px 'Manrope', sans-serif;
+}
+
+.sa-administrator-head > .sa-administrator-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sa-administrator-actions .secondary {
+    height: 38px;
+    padding-inline: 12px;
+}
+
+.sa-edit-administrator {
+    border-color: #d7d0f5;
+    color: #654bd2;
+}
+
+.sa-access-panel {
+    display: grid;
+    grid-template-columns: minmax(150px, auto) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    border-top: 1px solid #e8e8e5;
+    background: #fafaf8;
+}
+
+.sa-access-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sa-access-copy strong {
+    font: 800 14px 'Manrope', sans-serif;
+}
+
+.sa-access-copy small {
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.sa-access-panel .sa-branch-checkboxes {
+    margin: 0;
+}
+
+.sa-access-panel .sa-primary-access,
+.sa-access-panel .sa-branch-checkboxes label {
+    min-height: 38px;
+    padding: 8px 11px;
+    border-radius: 9px;
+}
+
+.sa-save-access {
+    height: 40px;
+    padding-inline: 16px;
+    white-space: nowrap;
+}
+
+.sa-administrator-list .form-error {
+    margin: 10px 18px 16px;
+}
+
+.temporary-password-action {
+    border-color: #e8c878;
+    background: #fff9e8;
+    color: #8b5d08;
+}
+
+.temporary-password-badge {
+    display: inline-flex;
+    margin-left: 0;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: #fff1ca;
+    color: #8b5d08;
+    font: 700 12px 'DM Sans', sans-serif;
+    font-style: normal;
+}
+
+@media (max-width: 1000px) {
+    .sa-administrator-list .sa-administrator-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .sa-administrator-head > .sa-administrator-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .sa-access-panel {
+        grid-template-columns: 1fr auto;
+    }
+
+    .sa-access-copy {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 650px) {
+    .sa-administrator-head > .sa-administrator-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .sa-administrator-actions .secondary {
+        width: 100%;
+    }
+
+    .sa-access-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .sa-access-copy,
+    .sa-save-access {
+        grid-column: auto;
+    }
+
+    .sa-access-copy small {
+        white-space: normal;
+    }
+
+    .sa-save-access {
+        width: 100%;
+    }
+}
+
+.forced-password-notice {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin: 18px;
+    padding: 13px;
+    border: 1px solid #e8c878;
+    border-radius: 10px;
+    background: #fff9e8;
+    color: #76500a;
+}
+
+.forced-password-notice > svg {
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+    border-radius: 9px;
+    background: #fff1ca;
+}
+
+.forced-password-notice > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.forced-password-notice span {
+    color: #8b713b;
+    font-size: 14px;
+}

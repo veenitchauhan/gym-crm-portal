@@ -1,4 +1,4 @@
-import { Form, Head, router, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Components/AdminLayout';
 import SelectDropdown from '../Components/SelectDropdown';
 import { useMemo, useState } from 'react';
@@ -11,8 +11,9 @@ type Member = { id: number; name: string; email: string; phone: string | null; m
 type Metrics = { activeMembers: number; todayCheckIns: number; currentlyInside: number; monthlyRevenue: number; atRiskMembers: number };
 type DropdownOptions = Record<string, string[]>;
 type MembershipPlan = { id:number;name:string;price:string;billingCycle:string;durationDays:number;isActive:boolean;activeSubscriptionsCount:number };
-type PaymentMember = { id:number;name:string;plan:string|null };
+type PaymentMember = { id:number;name:string;plan:string|null;planPrice:string|null;planMinimumAmount:string|null };
 type PaymentRecord = { id:number;memberId:number;memberName:string;plan:string|null;amount:string;status:string;paymentMethod:string;reference:string|null;paidAt:string|null };
+type PaymentDraft = { key:number;amount:string;status:string;paymentMethod:string;paidAt:string };
 type AttendanceMember = { id:number;name:string };
 type AttendanceRecord = { id:number;memberId:number;memberName:string;checkedInAt:string;checkedOutAt:string|null;notes:string|null };
 type Trainer = { id:number;name:string;email:string;phone:string|null;specialty:string;isActive:boolean;upcomingSessionsCount:number };
@@ -78,10 +79,10 @@ function Overview({ metrics, managerName, gymName, openModal, payments, attendan
     return <>
         <section className="page-heading"><div><span className="eyebrow">{today}</span><h1>Good morning, {firstName} <span>👋</span></h1><p>Here’s what’s happening at {gymName} today.</p></div><div className="heading-actions"><button className="secondary" onClick={exportReport}>Export report</button><button className="primary" onClick={openModal}><Plus size={18}/> Add member</button></div></section>
         <section className="stats-grid">
-            <Stat icon={<Users/>} label="Active members" value={metrics.activeMembers.toLocaleString('en-IN')} detail="Current active plans" color="violet"/>
-            <Stat icon={<UserRoundCheck/>} label="Today's check-ins" value={metrics.todayCheckIns.toLocaleString('en-IN')} detail={`${metrics.currentlyInside} currently inside`} color="green"/>
-            <Stat icon={<WalletCards/>} label="Monthly revenue" value={revenue} detail="No payments recorded yet" color="blue"/>
-            <Stat icon={<Activity/>} label="At-risk members" value={metrics.atRiskMembers.toLocaleString('en-IN')} detail="Expiring within 7 days" color="orange"/>
+            <Stat icon={<Users/>} label="Active members" value={metrics.activeMembers.toLocaleString('en-IN')} detail="Current active plans" color="violet" href="/admin/members"/>
+            <Stat icon={<UserRoundCheck/>} label="Today's check-ins" value={metrics.todayCheckIns.toLocaleString('en-IN')} detail={`${metrics.currentlyInside} currently inside`} color="green" href="/admin/members"/>
+            <Stat icon={<WalletCards/>} label="Monthly revenue" value={revenue} detail="Open payment records" color="blue" href="/admin/payments"/>
+            <Stat icon={<Activity/>} label="At-risk members" value={metrics.atRiskMembers.toLocaleString('en-IN')} detail="Expiring within 7 days" color="orange" href="/admin/members"/>
         </section>
         <section className="dashboard-grid">
             <div className="card revenue-card"><div className="card-head"><div><h2>Revenue overview</h2><p>Membership revenue this month</p></div></div><div className="revenue-meta"><strong>{revenue}</strong><small>{payments.filter(payment=>payment.status==='paid').length} recent paid transactions</small></div>{payments.length===0?<div className="chart-empty"><WalletCards/><strong>No revenue data yet</strong><span>Recorded membership payments will appear here.</span></div>:<div className="overview-payments">{payments.slice(0,5).map(payment=><div key={payment.id}><span>{payment.memberName}</span><strong>₹{Number(payment.amount).toLocaleString('en-IN')}</strong><i className={`status status-${payment.status}`}>{payment.status}</i></div>)}</div>}</div>
@@ -92,20 +93,61 @@ function Overview({ metrics, managerName, gymName, openModal, payments, attendan
     </>;
 }
 
-function Stat({ icon,label,value,detail,color }: any) { return <div className="stat-card"><div className={`stat-icon ${color}`}>{icon}</div><div className="stat-title">{label}<MoreHorizontal size={18}/></div><strong>{value}</strong><div className="trend"><span>{detail}</span></div></div>; }
+function Stat({ icon,label,value,detail,color,href }: any) { return <Link className="stat-card metric-link" href={href} prefetch><div className={`stat-icon ${color}`}>{icon}</div><div className="stat-title">{label}<MoreHorizontal size={18}/></div><strong>{value}</strong><div className="trend"><span>{detail}</span></div></Link>; }
 
 function Members({members,query,setQuery,openModal,edit,remove}:{members:Member[];query:string;setQuery:(s:string)=>void;openModal:()=>void;edit:(member:Member)=>void;remove:(member:Member)=>void}) { return <>
     <section className="page-heading"><div><span className="eyebrow">PEOPLE</span><h1>Members</h1><p>Manage profiles, plans and member engagement.</p></div><button className="primary" onClick={openModal}><Plus size={18}/> Add member</button></section>
     <div className="card members-card"><div className="member-toolbar"><div className="table-search"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search members..."/></div><div className="member-summary"><b>{members.length}</b> total members</div></div>{members.length === 0 ? <div className="compact-empty table-empty"><Users/><strong>No members yet</strong><span>Add your first member to populate this workspace.</span><button className="secondary empty-state-action" onClick={openModal}>Add first member</button></div> : <div className="member-table"><div className="member-row labels"><span>Member</span><span>Membership</span><span>Status</span><span>Visits</span><span>Joined</span><span>Actions</span></div>{members.map(m=><div className="member-row member-row-link" key={m.id} role="link" tabIndex={0} onClick={()=>router.visit(`/admin/members/${m.id}`)} onKeyDown={event=>{if(event.currentTarget===event.target&&(event.key==='Enter'||event.key===' ')){event.preventDefault();router.visit(`/admin/members/${m.id}`);}}}><div className="member-name"><Avatar initials={m.initials} color={m.accent}/><strong>{m.name}</strong></div><span>{m.plan}</span><span><i className={`status status-${m.status.toLowerCase()}`}>{m.status}</i></span><span><b>{m.visits}</b> this month</span><span>{m.joined}</span><div className="row-actions"><button className="edit-action" onClick={event=>{event.stopPropagation();edit(m);}} aria-label={`Edit ${m.name}`} title="Edit member"><Pencil/></button><button className="delete-action" onClick={event=>{event.stopPropagation();remove(m);}} aria-label={`Delete ${m.name}`} title="Delete member"><Trash2/></button></div></div>)}</div>}</div>
     </>; }
 
-function AddMember({plans,close,saved}:{plans:MembershipPlan[];close:()=>void;saved:()=>void}) { return <div className="modal-backdrop" onMouseDown={close}><Form action="/admin/members" method="post" className="modal" onMouseDown={event=>event.stopPropagation()} onSuccess={()=>{close();saved();}} resetOnSuccess>{({errors,processing})=><><div className="modal-head"><div><h2>Add a new member</h2><p>Create their profile, login credentials and membership.</p></div><button type="button" onClick={close}><X/></button></div><label>Full name<input name="name" autoFocus placeholder="e.g. Aarav Sharma" required/>{errors.name&&<em>{errors.name}</em>}</label><div className="form-row"><label>Email<input name="email" type="email" placeholder="aarav@example.com" required/>{errors.email&&<em>{errors.email}</em>}</label><label>Phone<input name="phone" placeholder="+91 98765 43210"/>{errors.phone&&<em>{errors.phone}</em>}</label></div><div className="form-row"><label>Temporary password<input name="password" type="password" autoComplete="new-password" minLength={8} required/>{errors.password&&<em>{errors.password}</em>}</label><label>Confirm password<input name="password_confirmation" type="password" autoComplete="new-password" minLength={8} required/></label></div><div className="form-row"><label>Membership plan<SelectDropdown name="membership_plan_id" defaultValue=""><option value="">No active plan</option>{plans.map(plan=><option key={plan.id} value={plan.id}>{plan.name} · ₹{Number(plan.price).toLocaleString('en-IN')}</option>)}</SelectDropdown>{errors.membership_plan_id&&<em>{errors.membership_plan_id}</em>}</label><label>Starts on<input name="membership_starts_at" type="date"/>{errors.membership_starts_at&&<em>{errors.membership_starts_at}</em>}</label></div><label>Custom end date <small>Leave blank to use the plan duration.</small><input name="membership_ends_at" type="date"/>{errors.membership_ends_at&&<em>{errors.membership_ends_at}</em>}</label><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing}>{processing?'Creating…':'Create member'}</button></div></>}</Form></div>; }
+function localDate(): string {
+    const now = new Date();
+
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function addDaysToDate(dateValue: string, days: number): string {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + days);
+
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function AddMember({plans,close,saved}:{plans:MembershipPlan[];close:()=>void;saved:()=>void}) {
+    const [planId,setPlanId] = useState('');
+    const [startsOn,setStartsOn] = useState(localDate());
+    const [endsOn,setEndsOn] = useState('');
+    const selectedPlan = plans.find(plan=>plan.id.toString()===planId);
+    const selectPlan = (value:string) => {
+        setPlanId(value);
+        const plan = plans.find(candidate=>candidate.id.toString()===value);
+        setEndsOn(plan ? addDaysToDate(startsOn || localDate(),plan.durationDays) : '');
+    };
+    const changeStartDate = (value:string) => {
+        setStartsOn(value);
+        setEndsOn(selectedPlan && value ? addDaysToDate(value,selectedPlan.durationDays) : '');
+    };
+
+    return <div className="modal-backdrop" onMouseDown={close}><Form action="/admin/members" method="post" className="modal" onMouseDown={event=>event.stopPropagation()} onSuccess={()=>{close();saved();}} resetOnSuccess>{({errors,processing})=><><div className="modal-head"><div><h2>Add a new member</h2><p>Create their profile and membership. We’ll email a secure password setup link.</p></div><button type="button" onClick={close}><X/></button></div><label>Full name<input name="name" autoFocus placeholder="e.g. Aarav Sharma" required/>{errors.name&&<em>{errors.name}</em>}</label><div className="form-row"><label>Email<input name="email" type="email" placeholder="aarav@example.com" required/>{errors.email&&<em>{errors.email}</em>}</label><label>Phone<input name="phone" placeholder="+91 98765 43210"/>{errors.phone&&<em>{errors.phone}</em>}</label></div><div className="form-row"><label>Membership plan<SelectDropdown name="membership_plan_id" value={planId} onChange={event=>selectPlan(event.target.value)}><option value="">No active plan</option>{plans.map(plan=><option key={plan.id} value={plan.id}>{plan.name} · ₹{Number(plan.price).toLocaleString('en-IN')}</option>)}</SelectDropdown>{errors.membership_plan_id&&<em>{errors.membership_plan_id}</em>}</label><label>Starts on<input name="membership_starts_at" type="date" value={startsOn} onChange={event=>changeStartDate(event.target.value)} disabled={!planId}/>{errors.membership_starts_at&&<em>{errors.membership_starts_at}</em>}</label></div><label>Ends on <small>Calculated from the selected plan; you can adjust it.</small><input name="membership_ends_at" type="date" value={endsOn} onChange={event=>setEndsOn(event.target.value)} disabled={!planId}/>{errors.membership_ends_at&&<em>{errors.membership_ends_at}</em>}</label><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing}>{processing?'Creating…':'Create member'}</button></div></>}</Form></div>;
+}
 
 function EditMember({member,plans,close}:{member:Member;plans:MembershipPlan[];close:()=>void}) {
     const [form,setForm] = useState({name:member.name,email:member.email,phone:member.phone ?? '',membership_plan_id:member.membershipPlanId?.toString() ?? '',membership_starts_at:member.membershipStartsAt ?? '',membership_ends_at:member.membershipEndsAt ?? ''});
     const update = (field:keyof typeof form,value:string) => setForm(current=>({...current,[field]:value}));
+    const updatePlan = (value:string) => setForm(current=>{
+        const plan = plans.find(candidate=>candidate.id.toString()===value);
+        const startsOn = current.membership_starts_at || localDate();
+
+        return {...current,membership_plan_id:value,membership_starts_at:value ? startsOn : '',membership_ends_at:plan ? addDaysToDate(startsOn,plan.durationDays) : ''};
+    });
+    const updateStartDate = (value:string) => setForm(current=>{
+        const plan = plans.find(candidate=>candidate.id.toString()===current.membership_plan_id);
+
+        return {...current,membership_starts_at:value,membership_ends_at:plan && value ? addDaysToDate(value,plan.durationDays) : ''};
+    });
     const submit = (event:React.FormEvent) => {event.preventDefault();router.put(`/admin/members/${member.id}`,form,{preserveScroll:true,onSuccess:close});};
-    return <div className="modal-backdrop" onMouseDown={close}><form className="modal" onMouseDown={event=>event.stopPropagation()} onSubmit={submit}><div className="modal-head"><div><h2>Edit member</h2><p>Update profile and membership information.</p></div><button type="button" onClick={close}><X/></button></div><label>Full name<input autoFocus value={form.name} onChange={event=>update('name',event.target.value)} required/></label><div className="form-row"><label>Email<input type="email" value={form.email} onChange={event=>update('email',event.target.value)} required/></label><label>Phone<input value={form.phone} onChange={event=>update('phone',event.target.value)}/></label></div><div className="form-row"><label>Membership plan<SelectDropdown value={form.membership_plan_id} onChange={event=>update('membership_plan_id',event.target.value)}><option value="">No active plan</option>{plans.map(plan=><option key={plan.id} value={plan.id}>{plan.name}</option>)}</SelectDropdown></label><label>Starts on<input type="date" value={form.membership_starts_at} onChange={event=>update('membership_starts_at',event.target.value)}/></label></div><label>Ends on<input type="date" value={form.membership_ends_at} onChange={event=>update('membership_ends_at',event.target.value)}/></label><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" type="submit"><Pencil/> Save changes</button></div></form></div>;
+    return <div className="modal-backdrop" onMouseDown={close}><form className="modal" onMouseDown={event=>event.stopPropagation()} onSubmit={submit}><div className="modal-head"><div><h2>Edit member</h2><p>Update profile and membership information.</p></div><button type="button" onClick={close}><X/></button></div><label>Full name<input autoFocus value={form.name} onChange={event=>update('name',event.target.value)} required/></label><div className="form-row"><label>Email<input type="email" value={form.email} onChange={event=>update('email',event.target.value)} required/></label><label>Phone<input value={form.phone} onChange={event=>update('phone',event.target.value)}/></label></div><div className="form-row"><label>Membership plan<SelectDropdown value={form.membership_plan_id} onChange={event=>updatePlan(event.target.value)}><option value="">No active plan</option>{plans.map(plan=><option key={plan.id} value={plan.id}>{plan.name}</option>)}</SelectDropdown></label><label>Starts on<input type="date" value={form.membership_starts_at} onChange={event=>updateStartDate(event.target.value)} disabled={!form.membership_plan_id}/></label></div><label>Ends on <small>Calculated from the selected plan; you can adjust it.</small><input type="date" value={form.membership_ends_at} onChange={event=>update('membership_ends_at',event.target.value)} disabled={!form.membership_plan_id}/></label><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" type="submit"><Pencil/> Save changes</button></div></form></div>;
 }
 
 
@@ -127,6 +169,64 @@ function ConvertLeadModal({lead,plans,close}:{lead:Lead;plans:MembershipPlan[];c
 
 function Payments({payments,create,edit}:{payments:PaymentRecord[];create:()=>void;edit:(payment:PaymentRecord)=>void}) { return <><section className="page-heading"><div><span className="eyebrow">FINANCE</span><h1>Payments</h1><p>Record membership payments and maintain a financial audit trail.</p></div><button className="primary" onClick={create}><Plus size={18}/> Record payment</button></section><div className="card members-card">{payments.length===0?<div className="compact-empty table-empty"><CreditCard/><strong>No payments recorded</strong><span>Record the first member payment to begin tracking revenue.</span><button className="secondary empty-state-action" onClick={create}>Record first payment</button></div>:<div className="payment-table"><div className="payment-row labels"><span>Member</span><span>Plan</span><span>Amount</span><span>Method</span><span>Status</span><span>Paid at</span><span>Actions</span></div>{payments.map(payment=><div className="payment-row" key={payment.id}><strong>{payment.memberName}</strong><span>{payment.plan??'Unassigned'}</span><strong>{new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(payment.amount))}</strong><span>{payment.paymentMethod}</span><i className={`status status-${payment.status}`}>{payment.status}</i><span>{payment.paidAt?new Date(payment.paidAt).toLocaleString('en-IN'):'Not paid'}</span><div className="row-actions"><button className="edit-action" onClick={()=>edit(payment)}><Pencil/></button>{payment.status==='pending'&&<button className="delete-action" onClick={()=>window.confirm('Delete this pending payment?')&&router.delete(`/admin/payments/${payment.id}`)}><Trash2/></button>}</div></div>)}</div>}</div></>; }
 
-function PaymentModal({payment,members,methods,close}:{payment:PaymentRecord|null;members:PaymentMember[];methods:string[];close:()=>void}) { const now=new Date();const localDateTime=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);return <div className="modal-backdrop" onMouseDown={close}><Form action={payment?`/admin/payments/${payment.id}`:'/admin/payments'} method={payment?'put':'post'} className="modal" onMouseDown={event=>event.stopPropagation()} onSuccess={close}>{({errors,processing})=><><div className="modal-head"><div><h2>{payment?'Edit payment':'Record payment'}</h2><p>Attach a financial transaction to a gym member.</p></div><button type="button" onClick={close}><X/></button></div><label>Member<SelectDropdown name="user_id" defaultValue={payment?.memberId??''} required><option value="" disabled>Select a member</option>{members.map(member=><option key={member.id} value={member.id}>{member.name}{member.plan?` · ${member.plan}`:''}</option>)}</SelectDropdown>{errors.user_id&&<em>{errors.user_id}</em>}</label><div className="form-row"><label>Amount (₹)<input name="amount" type="number" min="0.01" step="0.01" defaultValue={payment?.amount??''} required/>{errors.amount&&<em>{errors.amount}</em>}</label><label>Status<SelectDropdown name="status" defaultValue={payment?.status??'paid'}><option value="paid">Paid</option><option value="pending">Pending</option><option value="refunded">Refunded</option><option value="failed">Failed</option></SelectDropdown>{errors.status&&<em>{errors.status}</em>}</label></div><div className="form-row"><label>Payment method<SelectDropdown name="payment_method" defaultValue={payment?.paymentMethod??methods[0]??'UPI'}>{(methods.length?methods:['UPI','Card','Cash','Bank transfer']).map(method=><option key={method}>{method}</option>)}</SelectDropdown>{errors.payment_method&&<em>{errors.payment_method}</em>}</label><label>Paid at<input name="paid_at" type="datetime-local" defaultValue={payment?.paidAt??localDateTime}/>{errors.paid_at&&<em>{errors.paid_at}</em>}</label></div><label>Reference<input name="reference" defaultValue={payment?.reference??''} placeholder="Optional transaction reference"/>{errors.reference&&<em>{errors.reference}</em>}</label><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing}>{processing?'Saving…':'Save payment'}</button></div></>}</Form></div>; }
+function localDateTime(): string {
+    const now = new Date();
+
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function PaymentModal({payment,members,methods,close}:{payment:PaymentRecord|null;members:PaymentMember[];methods:string[];close:()=>void}) {
+    if (payment) {
+        return <EditPaymentModal payment={payment} members={members} methods={methods} close={close}/>;
+    }
+
+    return <BatchPaymentModal members={members} methods={methods} close={close}/>;
+}
+
+function EditPaymentModal({payment,members,methods,close}:{payment:PaymentRecord;members:PaymentMember[];methods:string[];close:()=>void}) {
+    const availableMethods = methods.length ? methods : ['UPI','Card','Cash','Bank transfer'];
+    const [memberId,setMemberId] = useState(payment.memberId.toString());
+    const [amount,setAmount] = useState(payment.amount);
+    const selectedMember = members.find(member=>member.id.toString()===memberId);
+    const minimumAmount = Math.max(Number(selectedMember?.planMinimumAmount)||0,0.01);
+    const selectMember = (selectedMemberId:string) => {
+        const member = members.find(item=>item.id.toString()===selectedMemberId);
+
+        setMemberId(selectedMemberId);
+        setAmount(member?.planPrice??'');
+    };
+
+    return <div className="modal-backdrop" onMouseDown={close}><Form action={`/admin/payments/${payment.id}`} method="put" className="modal payment-batch-modal" onMouseDown={event=>event.stopPropagation()} onSuccess={close}>{({errors,processing})=><><div className="modal-head payment-batch-head"><div><span className="payment-batch-icon"><WalletCards/></span><div><h2>Edit payment</h2><p>Update this member transaction.</p></div></div><button type="button" onClick={close} aria-label="Close"><X/></button></div><div className="payment-member-bar"><label>Member<SelectDropdown name="user_id" value={memberId} onChange={event=>selectMember(event.target.value)} required><option value="" disabled>Select a member</option>{members.map(member=><option key={member.id} value={member.id}>{member.name}{member.plan?` · ${member.plan}`:''}</option>)}</SelectDropdown>{errors.user_id&&<em>{errors.user_id}</em>}</label>{selectedMember&&<div className="payment-plan-summary"><span>{selectedMember.plan??'No active plan'}</span><strong>{selectedMember.planPrice?new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(selectedMember.planPrice)):'No plan amount'}</strong><small>Minimum {new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(selectedMember.planMinimumAmount)||0)}</small></div>}</div><div className="payment-entry-scroll"><div className="payment-entry-columns" aria-hidden="true"><span>Amount</span><span>Method</span><span>Status</span><span>Paid at</span><span/></div><div className="payment-entry-row"><label><span className="payment-field-label">Amount (₹)</span><input name="amount" type="number" min={minimumAmount} step="0.01" value={amount} onChange={event=>setAmount(event.target.value)} required/>{errors.amount&&<em>{errors.amount}</em>}</label><label><span className="payment-field-label">Method</span><SelectDropdown name="payment_method" defaultValue={payment.paymentMethod}>{availableMethods.map(method=><option key={method}>{method}</option>)}</SelectDropdown>{errors.payment_method&&<em>{errors.payment_method}</em>}</label><label><span className="payment-field-label">Status</span><SelectDropdown name="status" defaultValue={payment.status}><option value="paid">Paid</option><option value="pending">Pending</option><option value="refunded">Refunded</option><option value="failed">Failed</option></SelectDropdown>{errors.status&&<em>{errors.status}</em>}</label><label><span className="payment-field-label">Paid at</span><input name="paid_at" type="datetime-local" defaultValue={payment.paidAt??localDateTime()}/>{errors.paid_at&&<em>{errors.paid_at}</em>}</label></div></div><div className="payment-batch-footer"><div className="payment-batch-summary"><strong>1 payment</strong><span>{new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(amount)||0)} total</span></div><div><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing}>{processing?'Saving…':'Save payment'}</button></div></div></>}</Form></div>;
+}
+
+function BatchPaymentModal({members,methods,close}:{members:PaymentMember[];methods:string[];close:()=>void}) {
+    const availableMethods = methods.length ? methods : ['UPI','Card','Cash','Bank transfer'];
+    const createPaymentDraft = (key:number,amount=''): PaymentDraft => ({key,amount,status:'paid',paymentMethod:availableMethods[0],paidAt:localDateTime()});
+    const [selectedMemberId,setSelectedMemberId] = useState('');
+    const [nextPaymentKey,setNextPaymentKey] = useState(2);
+    const [paymentRows,setPaymentRows] = useState<PaymentDraft[]>([createPaymentDraft(1)]);
+    const selectedMember = members.find(member=>member.id.toString()===selectedMemberId);
+    const minimumAmount = Math.max(Number(selectedMember?.planMinimumAmount)||0,0.01);
+    const totalAmount = paymentRows.reduce((total,row)=>total+(Number(row.amount)||0),0);
+
+    const updatePaymentRow = (key:number,field:keyof Omit<PaymentDraft,'key'>,value:string) => {
+        setPaymentRows(rows=>rows.map(row=>row.key===key?{...row,[field]:value}:row));
+    };
+    const addPaymentRow = () => {
+        setPaymentRows(rows=>[...rows,createPaymentDraft(nextPaymentKey,selectedMember?.planPrice??'')]);
+        setNextPaymentKey(key=>key+1);
+    };
+    const selectMember = (memberId:string) => {
+        const member = members.find(item=>item.id.toString()===memberId);
+
+        setSelectedMemberId(memberId);
+        setPaymentRows(rows=>rows.map(row=>({...row,amount:member?.planPrice??''})));
+    };
+    const removePaymentRow = (key:number) => {
+        setPaymentRows(rows=>rows.length===1?rows:rows.filter(row=>row.key!==key));
+    };
+
+    return <div className="modal-backdrop" onMouseDown={close}><Form action="/admin/payments" method="post" className="modal payment-batch-modal" onMouseDown={event=>event.stopPropagation()} onSuccess={close}>{({errors,processing})=><><div className="modal-head payment-batch-head"><div><span className="payment-batch-icon"><WalletCards/></span><div><h2>Record payments</h2><p>Select one member, then add every payment received from them.</p></div></div><button type="button" onClick={close} aria-label="Close"><X/></button></div><div className="payment-member-bar"><label>Member<SelectDropdown name="user_id" value={selectedMemberId} onChange={event=>selectMember(event.target.value)} required><option value="" disabled>Select a member</option>{members.map(member=><option key={member.id} value={member.id}>{member.name}{member.plan?` · ${member.plan}`:''}</option>)}</SelectDropdown>{errors.user_id&&<em>{errors.user_id}</em>}</label>{selectedMember&&<div className="payment-plan-summary"><span>{selectedMember.plan??'No active plan'}</span><strong>{selectedMember.planPrice?new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(selectedMember.planPrice)):'No plan amount'}</strong><small>Minimum {new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(selectedMember.planMinimumAmount)||0)}</small></div>}</div><div className="payment-entry-scroll"><div className="payment-entry-columns" aria-hidden="true"><span>Amount</span><span>Method</span><span>Status</span><span>Paid at</span><span/></div>{paymentRows.map((row,index)=><div className="payment-entry-row" key={row.key}><label><span className="payment-field-label">Amount (₹)</span><input name={`payments[${index}][amount]`} type="number" min={minimumAmount} step="0.01" placeholder="0.00" value={row.amount} onChange={event=>updatePaymentRow(row.key,'amount',event.target.value)} required/>{errors[`payments.${index}.amount`]&&<em>{errors[`payments.${index}.amount`]}</em>}</label><label><span className="payment-field-label">Method</span><SelectDropdown name={`payments[${index}][payment_method]`} value={row.paymentMethod} onChange={event=>updatePaymentRow(row.key,'paymentMethod',event.target.value)}>{availableMethods.map(method=><option key={method}>{method}</option>)}</SelectDropdown>{errors[`payments.${index}.payment_method`]&&<em>{errors[`payments.${index}.payment_method`]}</em>}</label><label><span className="payment-field-label">Status</span><SelectDropdown name={`payments[${index}][status]`} value={row.status} onChange={event=>updatePaymentRow(row.key,'status',event.target.value)}><option value="paid">Paid</option><option value="pending">Pending</option><option value="refunded">Refunded</option><option value="failed">Failed</option></SelectDropdown>{errors[`payments.${index}.status`]&&<em>{errors[`payments.${index}.status`]}</em>}</label><label><span className="payment-field-label">Paid at</span><input name={`payments[${index}][paid_at]`} type="datetime-local" value={row.paidAt} onChange={event=>updatePaymentRow(row.key,'paidAt',event.target.value)}/>{errors[`payments.${index}.paid_at`]&&<em>{errors[`payments.${index}.paid_at`]}</em>}</label><button type="button" className="payment-remove-row" onClick={()=>removePaymentRow(row.key)} disabled={paymentRows.length===1} aria-label={`Remove payment ${index+1}`}><Trash2/></button></div>)}<button type="button" className="payment-add-row" onClick={addPaymentRow} disabled={paymentRows.length>=50||!selectedMemberId}><Plus/> Add another payment</button>{members.length===0&&<p className="payment-empty-warning">Add a member before recording payments.</p>}</div><div className="payment-batch-footer"><div className="payment-batch-summary"><strong>{paymentRows.length} {paymentRows.length===1?'payment':'payments'}</strong><span>{new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(totalAmount)} total</span></div><div><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing||!selectedMemberId}>{processing?'Recording…':`Record ${paymentRows.length} ${paymentRows.length===1?'payment':'payments'}`}</button></div></div></>}</Form></div>;
+}
 
 export default Dashboard;

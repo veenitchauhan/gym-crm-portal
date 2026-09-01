@@ -5,7 +5,7 @@ export default function Register() {
     return <>
         <Head title="Join Gym CRM Portal" />
         <main className="auth-shell register-shell">
-            <section className="auth-showcase"><Link href="/" className="auth-platform-logo"><img src="/images/gym-crm-portal-logo.svg" alt="Gym CRM Portal"/></Link><div className="auth-message"><span className="eyebrow">YOUR GYM, ONE WORKSPACE</span><h1>Your stronger operation<br/>starts here.</h1><p>Create your gym workspace, then invite members through the connected CRM.</p></div><p className="auth-quote">A 14-day Starter trial is included.</p></section>
+            <section className="auth-showcase"><Link href="/" className="auth-platform-logo"><img src="/images/gym-crm-portal-logo-on-dark.svg" alt="Gym CRM Portal"/></Link><div className="auth-message"><span className="eyebrow">YOUR GYM, ONE WORKSPACE</span><h1>Your stronger operation<br/>starts here.</h1><p>Create your gym workspace, then invite members through the connected CRM.</p></div><p className="auth-quote">A 14-day Starter trial is included.</p></section>
             <section className="auth-form-side"><div className="auth-form-wrap"><Link href="/" className="mobile-auth-brand auth-platform-logo"><img src="/images/gym-crm-portal-logo.svg" alt="Gym CRM Portal"/></Link><h2>Create gym workspace</h2><p>Set up your club and first administrator.</p>
                 <Form action="/register" method="post" className="auth-form">
                     {({ errors, processing }) => <>

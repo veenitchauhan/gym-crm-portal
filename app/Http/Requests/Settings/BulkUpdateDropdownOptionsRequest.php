@@ -33,6 +33,7 @@ class BulkUpdateDropdownOptionsRequest extends FormRequest
             'options.*.label' => ['required', 'string', 'max:100'],
             'options.*.is_active' => ['required', 'boolean'],
             'options.*.amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'options.*.minimumAmount' => [Rule::requiredIf($this->string('category')->toString() === DropdownCategory::MembershipPlan->value), 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ];
     }
 

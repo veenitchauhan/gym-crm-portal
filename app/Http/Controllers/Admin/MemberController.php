@@ -5,48 +5,62 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
+use App\Mail\MemberPlanStarted;
 use App\MembershipStatus;
 use App\Models\MembershipPlan;
+use App\Models\MembershipSubscription;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class MemberController extends Controller
 {
     public function store(StoreMemberRequest $request): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
+        [$member, $startedMembership] = DB::transaction(function () use ($request): array {
             $member = $request->user()->gym->users()->create([
                 ...$request->safe()->only([
                     'name',
                     'email',
                     'phone',
-                    'password',
                 ]),
+                'password' => Str::random(64),
                 'role' => UserRole::Member,
             ]);
 
-            $this->syncMembership($member, $request->validated());
+            $startedMembership = $this->syncMembership($member, $request->validated());
+
+            return [$member, $startedMembership];
         });
 
-        return back()->with('success', 'Member created successfully.');
+        $passwordToken = Password::broker()->createToken($member);
+        $member->sendPasswordResetNotification($passwordToken);
+        $this->sendPlanStartedEmail($member, $startedMembership);
+
+        return back()->with('success', 'Member created successfully. A password setup link has been emailed.');
     }
 
     public function update(UpdateMemberRequest $request, User $member): RedirectResponse
     {
         $this->ensureMemberBelongsToAdminGym($request, $member);
 
-        DB::transaction(function () use ($request, $member): void {
+        $startedMembership = DB::transaction(function () use ($request, $member): ?MembershipSubscription {
             $member->update($request->safe()->only([
                 'name',
                 'email',
                 'phone',
             ]));
-            $this->syncMembership($member, $request->validated());
+
+            return $this->syncMembership($member, $request->validated());
         });
+
+        $this->sendPlanStartedEmail($member, $startedMembership);
 
         return back()->with('success', 'Member updated successfully.');
     }
@@ -72,10 +86,10 @@ class MemberController extends Controller
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function syncMembership(User $member, array $attributes): void
+    private function syncMembership(User $member, array $attributes): ?MembershipSubscription
     {
         if (! array_key_exists('membership_plan_id', $attributes)) {
-            return;
+            return null;
         }
 
         $currentSubscription = $member->membershipSubscriptions()
@@ -86,7 +100,7 @@ class MemberController extends Controller
         if (! $attributes['membership_plan_id']) {
             $currentSubscription?->update(['status' => MembershipStatus::Cancelled]);
 
-            return;
+            return null;
         }
 
         $plan = MembershipPlan::query()
@@ -107,11 +121,12 @@ class MemberController extends Controller
                 'price' => $plan->price,
             ]);
 
-            return;
+            return null;
         }
 
         $currentSubscription?->update(['status' => MembershipStatus::Cancelled]);
-        $member->membershipSubscriptions()->create([
+
+        return $member->membershipSubscriptions()->create([
             'gym_id' => $member->gym_id,
             'membership_plan_id' => $plan->id,
             'starts_at' => $startsAt,
@@ -119,5 +134,20 @@ class MemberController extends Controller
             'status' => MembershipStatus::Active,
             'price' => $plan->price,
         ]);
+    }
+
+    private function sendPlanStartedEmail(User $member, ?MembershipSubscription $subscription): void
+    {
+        if (! $subscription) {
+            return;
+        }
+
+        $subscription->loadMissing(['gym', 'membershipPlan']);
+
+        Mail::to($member)->send(new MemberPlanStarted(
+            member: $member,
+            subscription: $subscription,
+            actionUrl: route('member.dashboard'),
+        ));
     }
 }

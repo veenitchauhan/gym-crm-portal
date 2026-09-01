@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureGymResourceBelongsToActiveGym;
+use App\Http\Middleware\EnsurePasswordHasBeenChanged;
 use App\Http\Middleware\EnsureSuperAdminAuthenticated;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserHasRole::class,
             'active_gym' => ResolveActiveGym::class,
             'gym_resource' => EnsureGymResourceBelongsToActiveGym::class,
+            'password_changed' => EnsurePasswordHasBeenChanged::class,
             'super_admin' => EnsureSuperAdminAuthenticated::class,
         ]);
         $middleware->redirectGuestsTo(fn (Request $request): string => $request->is('super-admin/*')

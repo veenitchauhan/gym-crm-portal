@@ -22,6 +22,7 @@ class MembershipPlanFactory extends Factory
             'gym_id' => Gym::factory(),
             'name' => fake()->unique()->words(2, true),
             'price' => fake()->randomFloat(2, 500, 10000),
+            'minimum_payment_amount' => 0,
             'billing_cycle' => 'Monthly',
             'duration_days' => 30,
             'is_active' => true,

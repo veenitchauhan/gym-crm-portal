@@ -6,6 +6,7 @@ use App\PaymentStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdatePaymentRequest extends FormRequest
 {
@@ -34,5 +35,30 @@ class UpdatePaymentRequest extends FormRequest
             'reference' => ['nullable', 'string', 'max:100'],
             'paid_at' => ['nullable', 'date'],
         ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->hasAny(['user_id', 'amount'])) {
+                return;
+            }
+
+            $member = $this->user()->gym->users()
+                ->where('role', 'member')
+                ->with('latestMembershipSubscription.membershipPlan')
+                ->find($this->integer('user_id'));
+            $minimumAmount = (float) ($member?->latestMembershipSubscription?->membershipPlan?->minimum_payment_amount ?? 0);
+
+            if ($minimumAmount > 0 && $this->float('amount') < $minimumAmount) {
+                $validator->errors()->add(
+                    'amount',
+                    'The amount must be at least ₹'.number_format($minimumAmount, 2).' for this member\'s plan.',
+                );
+            }
+        }];
     }
 }

@@ -1,14 +1,16 @@
 import FlashNotification from '@/Components/FlashNotification';
 import SelectDropdown from '../../Components/SelectDropdown';
-import { Form, Head, router } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { Building2, Calendar, CreditCard, Edit3, LogIn, LogOut, MapPin, Plus, ShieldCheck, Users, X } from 'lucide-react';
 import { useState } from 'react';
 
-type GymClient = { id: number; organization_id: number; organization_name: string; name: string; email: string | null; phone: string | null; subscription_plan: string; subscription_status: string; subscription_expires_at: string | null; monthly_fee: string; payment_status: string; is_active: boolean; administrators_count: number; members_count: number; multi_location_enabled: boolean; locations_count: number };
+type GymClient = { id: number; organization_id: number; organization_name: string; name: string; email: string | null; phone: string | null; subscription_plan: string; subscription_status: string; subscription_expires_at: string | null; monthly_fee: string; payment_status: string; is_active: boolean; administrators_count: number; members_count: number; multi_branch_enabled: boolean; branches_count: number };
 
 export default function Dashboard({ gyms, superAdmin }: { gyms: GymClient[]; superAdmin: { name: string; username: string } }) {
     const [editing, setEditing] = useState<GymClient | null>(null);
     const [creating, setCreating] = useState(false);
+    const view = new URLSearchParams(usePage().url.split('?')[1]?.split('#')[0] ?? '').get('view') ?? 'all';
+    const visibleGyms = view === 'branches' ? gyms.filter(gym => gym.branches_count > 0) : view === 'paid' ? gyms.filter(gym => gym.payment_status === 'paid') : gyms;
 
     return <>
         <Head title="Gym clients · Super Admin" />
@@ -19,16 +21,16 @@ export default function Dashboard({ gyms, superAdmin }: { gyms: GymClient[]; sup
             </header>
             <main className="sa-content">
                 <section className="page-heading">
-                    <div><span className="eyebrow">CLIENT OPERATIONS</span><h1>Gym clients</h1><p>Control subscriptions, locations, payments, and access.</p></div>
+                    <div><span className="eyebrow">CLIENT OPERATIONS</span><h1>Gym clients</h1><p>Control subscriptions, branches, payments, and access.</p></div>
                     <button className="primary" onClick={() => setCreating(true)}><Plus /> Add gym client</button>
                 </section>
                 <section className="sa-stats">
-                    <Stat icon={<Building2 />} label="Total clients" value={gyms.length} />
-                    <Stat icon={<MapPin />} label="Total locations" value={gyms.reduce((sum, gym) => sum + gym.locations_count, 0)} />
-                    <Stat icon={<CreditCard />} label="Payments current" value={gyms.filter(gym => gym.payment_status === 'paid').length} />
-                    <Stat icon={<Users />} label="Total members" value={gyms.reduce((sum, gym) => sum + gym.members_count, 0)} />
+                    <Stat icon={<Building2 />} label="Total clients" value={gyms.length} href="/super-admin/gyms?view=all#clients" />
+                    <Stat icon={<MapPin />} label="Total branches" value={gyms.reduce((sum, gym) => sum + gym.branches_count, 0)} href="/super-admin/gyms?view=branches#clients" />
+                    <Stat icon={<CreditCard />} label="Payments current" value={gyms.filter(gym => gym.payment_status === 'paid').length} href="/super-admin/gyms?view=paid#clients" />
+                    <Stat icon={<Users />} label="Total members" value={gyms.reduce((sum, gym) => sum + gym.members_count, 0)} href="/super-admin/members" />
                 </section>
-                <section className="sa-gym-grid">{gyms.map(gym => <GymCard key={gym.organization_id} gym={gym} edit={() => setEditing(gym)} />)}</section>
+                <section className="sa-gym-grid" id="clients">{visibleGyms.map(gym => <GymCard key={gym.organization_id} gym={gym} edit={() => setEditing(gym)} />)}</section>
                 {gyms.length === 0 && <div className="card compact-empty"><Building2 /><strong>No gym clients yet</strong><span>Add the first gym to begin managing the platform.</span></div>}
             </main>
         </div>
@@ -37,7 +39,7 @@ export default function Dashboard({ gyms, superAdmin }: { gyms: GymClient[]; sup
     </>;
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) { return <article>{icon}<div><small>{label}</small><strong>{value}</strong></div></article>; }
+function Stat({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: number; href: string }) { return <Link className="sa-stat-link metric-link" href={href} prefetch>{icon}<div><small>{label}</small><strong>{value}</strong></div></Link>; }
 
 function GymCard({ gym, edit }: { gym: GymClient; edit: () => void }) {
     const fee = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(gym.monthly_fee));
@@ -60,7 +62,7 @@ function GymCard({ gym, edit }: { gym: GymClient; edit: () => void }) {
         <div className="sa-gym-metrics"><div><small>Plan</small><strong>{gym.subscription_plan}</strong></div><div><small>Monthly fee</small><strong>{fee}</strong></div><div><small>Payment</small><strong className={`payment-${gym.payment_status}`}>{gym.payment_status}</strong></div><div><small>Members</small><strong>{gym.members_count}</strong></div></div>
         <div className="sa-gym-expiry"><Calendar /> Subscription {gym.subscription_expires_at ? `through ${new Date(gym.subscription_expires_at).toLocaleDateString('en-IN')}` : 'has no expiry date'}</div>
         <div className="sa-gym-actions"><button className="primary" disabled={gym.administrators_count === 0} onClick={event => runCardAction(event, () => router.post(`/super-admin/gyms/${gym.id}/login`))}><LogIn /> Login</button><button className="secondary" onClick={event => runCardAction(event, edit)}><Edit3 /> Edit</button><button className={`gym-status-button ${gym.is_active ? 'enabled' : 'disabled'}`} onClick={event => runCardAction(event, () => router.patch(`/super-admin/gyms/${gym.id}/status`))}>{gym.is_active ? 'Enabled' : 'Disabled'}</button></div>
-        <div className="sa-location-controls"><div><strong>Multiple gyms</strong><small>{gym.multi_location_enabled ? `${gym.locations_count} locations enabled` : 'Single gym client'}</small></div><span className="sa-card-open">Open client <span aria-hidden="true">→</span></span><button className={`location-toggle ${gym.multi_location_enabled ? 'enabled' : 'disabled'}`} onClick={event => runCardAction(event, () => router.patch(`/super-admin/organizations/${gym.organization_id}/multi-location`))}>{gym.multi_location_enabled ? 'On' : 'Off'}</button></div>
+        <div className="sa-branch-controls"><div><strong>Multiple branches</strong><small>{gym.multi_branch_enabled ? `${gym.branches_count} branches` : 'Single-gym client'}</small></div><span className="sa-card-open">Open client <span aria-hidden="true">→</span></span><button className={`branch-toggle ${gym.multi_branch_enabled ? 'enabled' : 'disabled'}`} onClick={event => runCardAction(event, () => router.patch(`/super-admin/organizations/${gym.organization_id}/multi-branch`))}>{gym.multi_branch_enabled ? 'On' : 'Off'}</button></div>
         {gym.administrators_count === 0 && <small className="sa-gym-warning">No client administrator configured</small>}
     </article>;
 }

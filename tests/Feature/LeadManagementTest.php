@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\LeadStatus;
+use App\Mail\MemberPlanStarted;
 use App\Models\Gym;
 use App\Models\Lead;
 use App\Models\MembershipPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -48,6 +50,7 @@ class LeadManagementTest extends TestCase
 
     public function test_admin_can_convert_a_lead_into_a_member_with_membership(): void
     {
+        Mail::fake();
         $gym = Gym::factory()->create();
         $admin = User::factory()->for($gym)->admin()->create();
         $plan = MembershipPlan::factory()->for($gym)->create(['duration_days' => 30]);
@@ -68,6 +71,8 @@ class LeadManagementTest extends TestCase
         $this->assertSame(LeadStatus::Converted, $lead->status);
         $this->assertSame($member->id, $lead->converted_user_id);
         $this->assertNull($lead->next_follow_up_at);
+        Mail::assertSent(MemberPlanStarted::class, fn (MemberPlanStarted $mail): bool => $mail->hasTo($member->email)
+            && $mail->subscription->membership_plan_id === $plan->id);
     }
 
     public function test_converted_lead_cannot_be_converted_again_edited_or_deleted(): void

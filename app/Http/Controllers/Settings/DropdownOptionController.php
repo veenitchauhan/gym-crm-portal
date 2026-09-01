@@ -36,7 +36,7 @@ class DropdownOptionController extends Controller
                 ]);
 
                 $option = (clone $options)->findOrFail($attributes['id']);
-                $this->syncMembershipPlan($request->user()->gym, $originalLabels[$option->id], $option, $attributes['amount'] ?? null);
+                $this->syncMembershipPlan($request->user()->gym, $originalLabels[$option->id], $option, $attributes['amount'] ?? null, $attributes['minimumAmount'] ?? null);
             }
         });
 
@@ -51,7 +51,7 @@ class DropdownOptionController extends Controller
         $options = $request->user()->gym->dropdownOptions();
         $nextPosition = (int) (clone $options)->where('category', $request->validated('category'))->max('position') + 1;
         $option = $options->create([...$request->validated(), 'position' => $nextPosition]);
-        $this->syncMembershipPlan($request->user()->gym, $option->label, $option, $request->validated('amount'));
+        $this->syncMembershipPlan($request->user()->gym, $option->label, $option, $request->validated('amount'), $request->validated('minimumAmount'));
 
         return back()->with('success', 'Dropdown option created successfully.');
     }
@@ -64,7 +64,7 @@ class DropdownOptionController extends Controller
         $this->ensureOptionBelongsToAdminGym($request, $dropdownOption);
         $originalLabel = $dropdownOption->label;
         $dropdownOption->update($request->validated());
-        $this->syncMembershipPlan($request->user()->gym, $originalLabel, $dropdownOption, $request->validated('amount'));
+        $this->syncMembershipPlan($request->user()->gym, $originalLabel, $dropdownOption, $request->validated('amount'), $request->validated('minimumAmount'));
 
         return back()->with('success', 'Dropdown option updated successfully.');
     }
@@ -90,7 +90,7 @@ class DropdownOptionController extends Controller
         );
     }
 
-    private function syncMembershipPlan(Gym $gym, string $originalLabel, DropdownOption $option, mixed $amount): void
+    private function syncMembershipPlan(Gym $gym, string $originalLabel, DropdownOption $option, mixed $amount, mixed $minimumAmount): void
     {
         if ($option->category !== DropdownCategory::MembershipPlan) {
             return;
@@ -102,6 +102,7 @@ class DropdownOptionController extends Controller
             $plan->update([
                 'name' => $option->label,
                 'price' => $amount ?? $plan->price,
+                'minimum_payment_amount' => $minimumAmount ?? $plan->minimum_payment_amount,
                 'is_active' => $option->is_active,
             ]);
 
@@ -109,7 +110,10 @@ class DropdownOptionController extends Controller
         }
 
         MembershipPlan::syncDropdownOptionsForGym($gym);
-        $gym->membershipPlans()->where('name', $option->label)->update(['price' => $amount ?? 0]);
+        $gym->membershipPlans()->where('name', $option->label)->update([
+            'price' => $amount ?? 0,
+            'minimum_payment_amount' => $minimumAmount ?? 0,
+        ]);
     }
 
     private function removeMembershipPlan(Gym $gym, DropdownOption $option): void

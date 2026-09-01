@@ -18,14 +18,15 @@ class MembershipPlanManagementTest extends TestCase
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)->post('/admin/membership-plans', [
-            'name' => 'Elite Annual', 'price' => 14999, 'billing_cycle' => 'Annual', 'duration_days' => 365, 'is_active' => true,
+            'name' => 'Elite Annual', 'price' => 14999, 'minimum_payment_amount' => 5000, 'billing_cycle' => 'Annual', 'duration_days' => 365, 'is_active' => true,
         ])->assertRedirect()->assertSessionHas('success', 'Membership plan created successfully.');
 
         $plan = MembershipPlan::query()->where('gym_id', $admin->gym_id)->sole();
         $this->assertSame('14999.00', $plan->price);
+        $this->assertSame('5000.00', $plan->minimum_payment_amount);
 
         $this->actingAs($admin)->put("/admin/membership-plans/{$plan->id}", [
-            'name' => 'Elite Plus', 'price' => 16999, 'billing_cycle' => 'Annual', 'duration_days' => 365, 'is_active' => false,
+            'name' => 'Elite Plus', 'price' => 16999, 'minimum_payment_amount' => 6000, 'billing_cycle' => 'Annual', 'duration_days' => 365, 'is_active' => false,
         ])->assertRedirect()->assertSessionHas('success', 'Membership plan updated successfully.');
         $this->assertDatabaseHas('membership_plans', ['id' => $plan->id, 'name' => 'Elite Plus', 'is_active' => false]);
 
@@ -42,10 +43,10 @@ class MembershipPlanManagementTest extends TestCase
         MembershipPlan::factory()->for(Gym::factory())->create(['name' => 'Shared Name']);
 
         $this->actingAs($admin)->post('/admin/membership-plans', [
-            'name' => 'Growth', 'price' => 1000, 'billing_cycle' => 'Monthly', 'duration_days' => 30, 'is_active' => true,
+            'name' => 'Growth', 'price' => 1000, 'minimum_payment_amount' => 200, 'billing_cycle' => 'Monthly', 'duration_days' => 30, 'is_active' => true,
         ])->assertSessionHasErrors('name');
         $this->actingAs($admin)->post('/admin/membership-plans', [
-            'name' => 'Shared Name', 'price' => 1000, 'billing_cycle' => 'Monthly', 'duration_days' => 30, 'is_active' => true,
+            'name' => 'Shared Name', 'price' => 1000, 'minimum_payment_amount' => 200, 'billing_cycle' => 'Monthly', 'duration_days' => 30, 'is_active' => true,
         ])->assertRedirect()->assertSessionDoesntHaveErrors();
 
         $this->assertDatabaseHas('membership_plans', ['gym_id' => $admin->gym_id, 'name' => 'Shared Name']);
@@ -57,7 +58,7 @@ class MembershipPlanManagementTest extends TestCase
         $otherGymPlan = MembershipPlan::factory()->for(Gym::factory())->create();
 
         $this->actingAs($admin)->put("/admin/membership-plans/{$otherGymPlan->id}", [
-            'name' => 'Cross Tenant', 'price' => 1000, 'billing_cycle' => 'Monthly', 'duration_days' => 30, 'is_active' => true,
+            'name' => 'Cross Tenant', 'price' => 1000, 'minimum_payment_amount' => 200, 'billing_cycle' => 'Monthly', 'duration_days' => 30, 'is_active' => true,
         ])->assertNotFound();
         $this->actingAs($admin)->delete("/admin/membership-plans/{$otherGymPlan->id}")->assertNotFound();
 

@@ -19,7 +19,7 @@ class OrganizationFactory extends Factory
     {
         return [
             'name' => fake()->company(),
-            'multi_location_enabled' => false,
+            'multi_branch_enabled' => false,
         ];
     }
 }

@@ -10,22 +10,41 @@ use App\Models\User;
 use App\PaymentStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
     public function store(StorePaymentRequest $request): RedirectResponse
     {
-        $member = $request->user()->gym->users()->where('role', 'member')->findOrFail($request->validated('user_id'));
-        $request->user()->gym->payments()->create($this->paymentAttributes($request, $member));
+        $paymentRows = $request->paymentRows();
+        $member = $request->user()->gym->users()
+            ->where('role', 'member')
+            ->with('latestMembershipSubscription')
+            ->findOrFail($request->integer('user_id'));
 
-        return back()->with('success', 'Payment recorded successfully.');
+        DB::transaction(function () use ($request, $paymentRows, $member): void {
+            foreach ($paymentRows as $paymentRow) {
+                $request->user()->gym->payments()->create($this->paymentAttributes($paymentRow, $member));
+            }
+        });
+
+        $paymentCount = count($paymentRows);
+        $message = $paymentCount === 1
+            ? 'Payment recorded successfully.'
+            : "{$paymentCount} payments recorded successfully.";
+
+        return back()->with('success', $message);
     }
 
     public function update(UpdatePaymentRequest $request, Payment $payment): RedirectResponse
     {
         $this->ensurePaymentBelongsToAdminGym($request, $payment);
-        $member = $request->user()->gym->users()->where('role', 'member')->findOrFail($request->validated('user_id'));
-        $payment->update($this->paymentAttributes($request, $member, $payment));
+        $member = $request->user()->gym->users()
+            ->where('role', 'member')
+            ->with('latestMembershipSubscription')
+            ->findOrFail($request->validated('user_id'));
+        $payment->update($this->paymentAttributes($request->validated(), $member, $payment));
 
         return back()->with('success', 'Payment updated successfully.');
     }
@@ -51,16 +70,15 @@ class PaymentController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function paymentAttributes(StorePaymentRequest|UpdatePaymentRequest $request, User $member, ?Payment $payment = null): array
+    private function paymentAttributes(array $paymentData, User $member, ?Payment $payment = null): array
     {
-        $status = PaymentStatus::from($request->validated('status'));
-        $subscription = $member->membershipSubscriptions()->latest()->first();
+        $status = PaymentStatus::from($paymentData['status']);
 
         return [
-            ...$request->safe()->only(['amount', 'status', 'payment_method', 'reference']),
+            ...Arr::only($paymentData, ['amount', 'status', 'payment_method', 'reference']),
             'user_id' => $member->id,
-            'membership_subscription_id' => $subscription?->id,
-            'paid_at' => $request->validated('paid_at')
+            'membership_subscription_id' => $member->latestMembershipSubscription?->id,
+            'paid_at' => ($paymentData['paid_at'] ?? null)
                 ?? ($status === PaymentStatus::Paid ? $payment?->paid_at ?? now() : null),
         ];
     }

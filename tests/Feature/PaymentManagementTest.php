@@ -22,7 +22,7 @@ class PaymentManagementTest extends TestCase
         $gym = Gym::factory()->create();
         $admin = User::factory()->for($gym)->admin()->create();
         $member = User::factory()->for($gym)->member()->create();
-        $plan = MembershipPlan::factory()->for($gym)->create();
+        $plan = MembershipPlan::factory()->for($gym)->create(['minimum_payment_amount' => 500]);
         $subscription = MembershipSubscription::factory()->create([
             'gym_id' => $gym->id,
             'user_id' => $member->id,
@@ -48,8 +48,126 @@ class PaymentManagementTest extends TestCase
         $this->actingAs($admin)->get('/admin/payments')->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->where('metrics.monthlyRevenue', 1499)
+            ->where('paymentMembers.0.planPrice', $plan->price)
+            ->where('paymentMembers.0.planMinimumAmount', $plan->minimum_payment_amount)
             ->has('payments', 1)
             ->where('payments.0.id', $payment->id));
+    }
+
+    public function test_admin_can_record_multiple_member_payments_in_one_batch(): void
+    {
+        $gym = Gym::factory()->create();
+        $admin = User::factory()->for($gym)->admin()->create();
+        $firstMember = User::factory()->for($gym)->member()->create();
+
+        $this->actingAs($admin)->post('/admin/payments', [
+            'user_id' => $firstMember->id,
+            'payments' => [
+                [
+                    'amount' => 1499,
+                    'status' => PaymentStatus::Paid->value,
+                    'payment_method' => 'UPI',
+                    'paid_at' => '2026-09-01 10:00:00',
+                ],
+                [
+                    'amount' => 2500,
+                    'status' => PaymentStatus::Pending->value,
+                    'payment_method' => 'Cash',
+                    'paid_at' => null,
+                ],
+            ],
+        ])->assertRedirect()->assertSessionHas('success', '2 payments recorded successfully.');
+
+        $this->assertDatabaseHas('payments', [
+            'gym_id' => $gym->id,
+            'user_id' => $firstMember->id,
+            'amount' => 1499,
+            'status' => PaymentStatus::Paid->value,
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'gym_id' => $gym->id,
+            'user_id' => $firstMember->id,
+            'amount' => 2500,
+            'status' => PaymentStatus::Pending->value,
+            'paid_at' => null,
+        ]);
+        $this->assertSame(2, Payment::query()->count());
+    }
+
+    public function test_invalid_batch_member_prevents_all_payments_from_being_recorded(): void
+    {
+        $gym = Gym::factory()->create();
+        $admin = User::factory()->for($gym)->admin()->create();
+        $otherMember = User::factory()->for(Gym::factory())->member()->create();
+
+        $this->actingAs($admin)->post('/admin/payments', [
+            'user_id' => $otherMember->id,
+            'payments' => [
+                [
+                    'amount' => 1000,
+                    'status' => PaymentStatus::Paid->value,
+                    'payment_method' => 'UPI',
+                ],
+                [
+                    'amount' => 1200,
+                    'status' => PaymentStatus::Paid->value,
+                    'payment_method' => 'Cash',
+                ],
+            ],
+        ])->assertSessionHasErrors('user_id');
+
+        $this->assertSame(0, Payment::query()->count());
+    }
+
+    public function test_payment_batch_rejects_an_amount_below_the_members_plan_minimum(): void
+    {
+        $gym = Gym::factory()->create();
+        $admin = User::factory()->for($gym)->admin()->create();
+        $member = User::factory()->for($gym)->member()->create();
+        $plan = MembershipPlan::factory()->for($gym)->create(['minimum_payment_amount' => 500]);
+        MembershipSubscription::factory()->create([
+            'gym_id' => $gym->id,
+            'user_id' => $member->id,
+            'membership_plan_id' => $plan->id,
+        ]);
+
+        $this->actingAs($admin)->post('/admin/payments', [
+            'user_id' => $member->id,
+            'payments' => [
+                ['amount' => 500, 'status' => PaymentStatus::Paid->value, 'payment_method' => 'UPI'],
+                ['amount' => 499.99, 'status' => PaymentStatus::Paid->value, 'payment_method' => 'Cash'],
+            ],
+        ])->assertSessionHasErrors([
+            'payments.1.amount' => 'The amount must be at least ₹500.00 for this member\'s plan.',
+        ]);
+
+        $this->assertSame(0, Payment::query()->count());
+    }
+
+    public function test_payment_equal_to_the_members_plan_minimum_is_recorded(): void
+    {
+        $gym = Gym::factory()->create();
+        $admin = User::factory()->for($gym)->admin()->create();
+        $member = User::factory()->for($gym)->member()->create();
+        $plan = MembershipPlan::factory()->for($gym)->create(['minimum_payment_amount' => 500]);
+        MembershipSubscription::factory()->create([
+            'gym_id' => $gym->id,
+            'user_id' => $member->id,
+            'membership_plan_id' => $plan->id,
+        ]);
+
+        $this->actingAs($admin)->post('/admin/payments', [
+            'user_id' => $member->id,
+            'payments' => [
+                ['amount' => 500, 'status' => PaymentStatus::Paid->value, 'payment_method' => 'UPI'],
+            ],
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('payments', [
+            'gym_id' => $gym->id,
+            'user_id' => $member->id,
+            'amount' => 500,
+        ]);
     }
 
     public function test_admin_can_update_a_pending_payment_to_paid(): void

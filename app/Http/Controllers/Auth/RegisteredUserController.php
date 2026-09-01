@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\ResolveActiveGym;
 use App\Http\Requests\Auth\RegisterGymRequest;
+use App\Mail\ClientWelcome;
 use App\Models\DropdownOption;
 use App\Models\MembershipPlan;
 use App\Models\Organization;
@@ -12,6 +13,7 @@ use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,7 +29,7 @@ class RegisteredUserController extends Controller
         $user = DB::transaction(function () use ($request) {
             $organization = Organization::query()->create([
                 'name' => $request->validated('gym_name'),
-                'multi_location_enabled' => false,
+                'multi_branch_enabled' => false,
             ]);
             $gym = $organization->gyms()->create([
                 'name' => $request->validated('gym_name'),
@@ -51,6 +53,13 @@ class RegisteredUserController extends Controller
 
             return $administrator;
         });
+
+        Mail::to($user)->send(new ClientWelcome(
+            administrator: $user,
+            gym: $user->gym,
+            actionUrl: route('login'),
+            actionLabel: 'Sign in to your workspace',
+        ));
 
         Auth::login($user);
         $request->session()->regenerate();

@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\MembershipStatus;
 use App\Models\Gym;
+use App\Models\MembershipPlan;
+use App\Models\MembershipSubscription;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,94 +16,94 @@ class OrganizationTenancyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_gym_belongs_to_a_single_location_organization_by_default(): void
+    public function test_a_client_has_a_single_gym_by_default(): void
     {
         $gym = Gym::factory()->create();
 
         $this->assertInstanceOf(Organization::class, $gym->organization);
-        $this->assertFalse($gym->organization->multi_location_enabled);
+        $this->assertFalse($gym->organization->multi_branch_enabled);
         $this->assertSame(1, $gym->organization->gyms()->count());
     }
 
-    public function test_an_organization_can_contain_multiple_gym_locations(): void
+    public function test_an_organization_can_contain_multiple_gym_branches(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         Gym::factory()->count(2)->for($organization)->create();
 
         $this->assertSame(2, $organization->gyms()->count());
     }
 
-    public function test_super_admin_can_enable_multi_location_access_for_a_client(): void
+    public function test_super_admin_can_enable_multi_branch_access_for_a_client(): void
     {
         $organization = Organization::factory()->create();
         Gym::factory()->for($organization)->create();
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->patch("/super-admin/organizations/{$organization->id}/multi-location")
+            ->patch("/super-admin/organizations/{$organization->id}/multi-branch")
             ->assertRedirect()
             ->assertSessionHas('success');
 
-        $this->assertTrue($organization->fresh()->multi_location_enabled);
+        $this->assertTrue($organization->fresh()->multi_branch_enabled);
     }
 
-    public function test_location_cannot_be_added_until_multi_location_access_is_enabled(): void
+    public function test_branch_cannot_be_added_until_multi_branch_access_is_enabled(): void
     {
         $organization = Organization::factory()->create();
         Gym::factory()->for($organization)->create();
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->post("/super-admin/organizations/{$organization->id}/locations", ['name' => 'North Branch'])
+            ->post("/super-admin/organizations/{$organization->id}/branches", ['name' => 'North Branch'])
             ->assertForbidden();
 
         $this->assertDatabaseMissing('gyms', ['organization_id' => $organization->id, 'name' => 'North Branch']);
     }
 
-    public function test_super_admin_can_add_a_location_with_the_clients_subscription_settings(): void
+    public function test_super_admin_can_add_a_branch_with_the_clients_subscription_settings(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
-        $primaryLocation = Gym::factory()->for($organization)->create([
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        $primaryGym = Gym::factory()->for($organization)->create([
             'subscription_plan' => 'Enterprise',
             'monthly_fee' => 9999,
             'payment_status' => 'paid',
         ]);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->post("/super-admin/organizations/{$organization->id}/locations", [
+            ->post("/super-admin/organizations/{$organization->id}/branches", [
                 'name' => 'North Branch',
                 'email' => 'north@example.test',
                 'phone' => '+91 99999 11111',
             ])
             ->assertRedirect()
-            ->assertSessionHas('success', 'Gym location created successfully.');
+            ->assertSessionHas('success', 'Gym branch created successfully.');
 
-        $location = Gym::query()->where('name', 'North Branch')->firstOrFail();
-        $this->assertSame($organization->id, $location->organization_id);
-        $this->assertSame($primaryLocation->subscription_plan, $location->subscription_plan);
-        $this->assertSame($primaryLocation->monthly_fee, $location->monthly_fee);
-        $this->assertGreaterThan(0, $location->dropdownOptions()->count());
-        $this->assertGreaterThan(0, $location->membershipPlans()->count());
+        $branch = Gym::query()->where('name', 'North Branch')->firstOrFail();
+        $this->assertSame($organization->id, $branch->organization_id);
+        $this->assertSame($primaryGym->subscription_plan, $branch->subscription_plan);
+        $this->assertSame($primaryGym->monthly_fee, $branch->monthly_fee);
+        $this->assertGreaterThan(0, $branch->dropdownOptions()->count());
+        $this->assertGreaterThan(0, $branch->membershipPlans()->count());
     }
 
-    public function test_multi_location_access_cannot_be_disabled_while_multiple_locations_exist(): void
+    public function test_multi_branch_access_cannot_be_disabled_while_multiple_branches_exist(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         Gym::factory()->count(2)->for($organization)->create();
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->patch("/super-admin/organizations/{$organization->id}/multi-location")
+            ->patch("/super-admin/organizations/{$organization->id}/multi-branch")
             ->assertRedirect()
-            ->assertSessionHasErrors('multi_location');
+            ->assertSessionHasErrors('multi_branch');
 
-        $this->assertTrue($organization->fresh()->multi_location_enabled);
+        $this->assertTrue($organization->fresh()->multi_branch_enabled);
     }
 
-    public function test_client_status_change_applies_to_every_location(): void
+    public function test_client_status_change_applies_to_every_gym(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
-        $locations = Gym::factory()->count(2)->for($organization)->create(['is_active' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        $gyms = Gym::factory()->count(2)->for($organization)->create(['is_active' => true]);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->patch("/super-admin/gyms/{$locations->first()->id}/status")
+            ->patch("/super-admin/gyms/{$gyms->first()->id}/status")
             ->assertRedirect();
 
         $this->assertSame(0, $organization->gyms()->where('is_active', true)->count());
@@ -108,16 +111,17 @@ class OrganizationTenancyTest extends TestCase
 
     public function test_super_admin_client_page_exposes_a_consolidated_overview(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
-        $primaryLocation = Gym::factory()->for($organization)->create([
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        $primaryGym = Gym::factory()->for($organization)->create([
             'name' => 'Central Gym',
             'created_at' => now()->subMinute(),
         ]);
-        $branchLocation = Gym::factory()->for($organization)->create(['name' => 'North Gym']);
-        $administrator = User::factory()->for($primaryLocation)->admin()->create();
-        $administrator->accessibleGyms()->attach($branchLocation);
-        User::factory()->count(2)->for($primaryLocation)->member()->create();
-        User::factory()->for($branchLocation)->member()->create();
+        $branch = Gym::factory()->for($organization)->create(['name' => 'North Gym']);
+        $administrator = User::factory()->for($primaryGym)->admin()->create();
+        $administrator->accessibleGyms()->attach($branch);
+        User::factory()->for($primaryGym)->member()->create(['name' => 'Aarav Member', 'email' => 'aarav@example.test']);
+        User::factory()->for($primaryGym)->member()->create(['name' => 'Bella Member', 'email' => 'bella@example.test']);
+        User::factory()->for($branch)->member()->create(['name' => 'Charlie Member', 'email' => 'charlie@example.test']);
 
         $this->withSession(['super_admin_authenticated' => true])
             ->get("/super-admin/organizations/{$organization->id}")
@@ -126,81 +130,152 @@ class OrganizationTenancyTest extends TestCase
                 ->where('client.id', $organization->id)
                 ->where('client.name', $organization->name)
                 ->where('client.members_count', 3)
+                ->missing('client.members')
                 ->has('client.administrators', 1)
-                ->has('client.locations', 2)
-                ->where('client.locations.0.id', $primaryLocation->id)
-                ->where('client.locations.0.is_primary', true)
-                ->where('client.locations.0.administrators_count', 1)
-                ->where('client.locations.1.id', $branchLocation->id)
-                ->where('client.locations.1.is_primary', false)
-                ->where('client.locations.1.administrators_count', 1));
+                ->where('client.primary_gym.id', $primaryGym->id)
+                ->has('client.branches', 1)
+                ->where('client.branches.0.id', $branch->id)
+                ->where('client.branches.0.administrators_count', 1));
     }
 
-    public function test_super_admin_can_update_location_information(): void
+    public function test_super_admin_can_open_a_branch_with_its_related_information(): void
     {
-        $organization = Organization::factory()->create(['name' => 'Original Client']);
-        $primaryLocation = Gym::factory()->for($organization)->create(['name' => 'Original Gym']);
+        $organization = Organization::factory()->create(['name' => 'TNT Gym', 'multi_branch_enabled' => true]);
+        $primaryGym = Gym::factory()->for($organization)->create(['name' => 'TNT Gym']);
+        $branch = Gym::factory()->for($organization)->create(['name' => 'TNT Gym Baltana']);
+        $administrator = User::factory()->for($primaryGym)->admin()->create([
+            'name' => 'Ramesh Admin',
+            'email' => 'ramesh@example.test',
+        ]);
+        $administrator->accessibleGyms()->attach($branch);
+        $member = User::factory()->for($branch)->member()->create([
+            'name' => 'Branch Member',
+            'email' => 'member@example.test',
+        ]);
+        $plan = MembershipPlan::factory()->for($branch)->create(['name' => 'Branch Monthly']);
+        MembershipSubscription::factory()->create([
+            'gym_id' => $branch->id,
+            'user_id' => $member->id,
+            'membership_plan_id' => $plan->id,
+            'status' => MembershipStatus::Active,
+            'ends_at' => today()->addMonth(),
+        ]);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->put("/super-admin/organizations/{$organization->id}/locations/{$primaryLocation->id}", [
-                'name' => 'Updated Gym',
+            ->get("/super-admin/organizations/{$organization->id}/branches/{$branch->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('SuperAdmin/BranchShow')
+                ->where('client.id', $organization->id)
+                ->where('branch.id', $branch->id)
+                ->where('branch.name', 'TNT Gym Baltana')
+                ->where('branch.administrators.0.name', 'Ramesh Admin')
+                ->where('branch.members.0.name', 'Branch Member')
+                ->where('branch.members.0.email', 'member@example.test')
+                ->where('branch.members.0.plan', 'Branch Monthly')
+                ->where('branch.members.0.status', 'Active'));
+    }
+
+    public function test_primary_gym_does_not_open_as_a_branch_page(): void
+    {
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        $primaryGym = Gym::factory()->for($organization)->create();
+
+        $this->withSession(['super_admin_authenticated' => true])
+            ->get("/super-admin/organizations/{$organization->id}/branches/{$primaryGym->id}")
+            ->assertNotFound();
+    }
+
+    public function test_branch_from_another_client_does_not_open(): void
+    {
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        Gym::factory()->for($organization)->create();
+        $otherOrganization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        Gym::factory()->for($otherOrganization)->create();
+        $otherBranch = Gym::factory()->for($otherOrganization)->create();
+
+        $this->withSession(['super_admin_authenticated' => true])
+            ->get("/super-admin/organizations/{$organization->id}/branches/{$otherBranch->id}")
+            ->assertNotFound();
+    }
+
+    public function test_regular_gym_user_cannot_open_a_branch_page(): void
+    {
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        $primaryGym = Gym::factory()->for($organization)->create();
+        $branch = Gym::factory()->for($organization)->create();
+        $administrator = User::factory()->for($primaryGym)->admin()->create();
+
+        $this->actingAs($administrator)
+            ->get("/super-admin/organizations/{$organization->id}/branches/{$branch->id}")
+            ->assertRedirect(route('super-admin.login'));
+    }
+
+    public function test_super_admin_can_update_branch_information(): void
+    {
+        $organization = Organization::factory()->create(['name' => 'Original Client']);
+        Gym::factory()->for($organization)->create(['name' => 'Original Gym']);
+        $branch = Gym::factory()->for($organization)->create(['name' => 'Original Branch']);
+
+        $this->withSession(['super_admin_authenticated' => true])
+            ->put("/super-admin/organizations/{$organization->id}/branches/{$branch->id}", [
+                'name' => 'Updated Branch',
                 'email' => 'updated@example.test',
                 'phone' => '+91 90000 00000',
             ])
             ->assertRedirect()
-            ->assertSessionHas('success', 'Gym location updated successfully.');
+            ->assertSessionHas('success', 'Gym branch updated successfully.');
 
         $this->assertDatabaseHas('gyms', [
-            'id' => $primaryLocation->id,
-            'name' => 'Updated Gym',
+            'id' => $branch->id,
+            'name' => 'Updated Branch',
             'email' => 'updated@example.test',
             'phone' => '+91 90000 00000',
         ]);
-        $this->assertSame('Updated Gym', $organization->fresh()->name);
+        $this->assertSame('Original Client', $organization->fresh()->name);
     }
 
-    public function test_location_from_another_client_cannot_be_updated(): void
+    public function test_branch_from_another_client_cannot_be_updated(): void
     {
         $organization = Organization::factory()->create();
-        $otherLocation = Gym::factory()->create(['name' => 'Other Gym']);
+        $otherBranch = Gym::factory()->create(['name' => 'Other Gym']);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->put("/super-admin/organizations/{$organization->id}/locations/{$otherLocation->id}", [
+            ->put("/super-admin/organizations/{$organization->id}/branches/{$otherBranch->id}", [
                 'name' => 'Changed Gym',
             ])
             ->assertNotFound();
 
-        $this->assertSame('Other Gym', $otherLocation->fresh()->name);
+        $this->assertSame('Other Gym', $otherBranch->fresh()->name);
     }
 
-    public function test_super_admin_can_disable_and_enable_a_branch_location(): void
+    public function test_super_admin_can_disable_and_enable_a_branch(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
         Gym::factory()->for($organization)->create(['created_at' => now()->subMinute()]);
-        $branchLocation = Gym::factory()->for($organization)->create(['is_active' => true]);
+        $branch = Gym::factory()->for($organization)->create(['is_active' => true]);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->patch("/super-admin/organizations/{$organization->id}/locations/{$branchLocation->id}/status")
+            ->patch("/super-admin/organizations/{$organization->id}/branches/{$branch->id}/status")
             ->assertRedirect();
 
-        $this->assertFalse($branchLocation->fresh()->is_active);
+        $this->assertFalse($branch->fresh()->is_active);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->patch("/super-admin/organizations/{$organization->id}/locations/{$branchLocation->id}/status")
+            ->patch("/super-admin/organizations/{$organization->id}/branches/{$branch->id}/status")
             ->assertRedirect();
 
-        $this->assertTrue($branchLocation->fresh()->is_active);
+        $this->assertTrue($branch->fresh()->is_active);
     }
 
-    public function test_primary_location_cannot_be_disabled_from_the_location_page(): void
+    public function test_primary_gym_cannot_be_disabled_from_the_branch_page(): void
     {
-        $organization = Organization::factory()->create(['multi_location_enabled' => true]);
-        $primaryLocation = Gym::factory()->for($organization)->create(['is_active' => true]);
+        $organization = Organization::factory()->create(['multi_branch_enabled' => true]);
+        $primaryGym = Gym::factory()->for($organization)->create(['is_active' => true]);
 
         $this->withSession(['super_admin_authenticated' => true])
-            ->patch("/super-admin/organizations/{$organization->id}/locations/{$primaryLocation->id}/status")
+            ->patch("/super-admin/organizations/{$organization->id}/branches/{$primaryGym->id}/status")
             ->assertUnprocessable();
 
-        $this->assertTrue($primaryLocation->fresh()->is_active);
+        $this->assertTrue($primaryGym->fresh()->is_active);
     }
 }

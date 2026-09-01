@@ -14,11 +14,11 @@ class Organization extends Model
     /** @use HasFactory<OrganizationFactory> */
     use HasFactory;
 
-    protected $fillable = ['name', 'multi_location_enabled'];
+    protected $fillable = ['name', 'multi_branch_enabled'];
 
     protected function casts(): array
     {
-        return ['multi_location_enabled' => 'boolean'];
+        return ['multi_branch_enabled' => 'boolean'];
     }
 
     public function gyms(): HasMany

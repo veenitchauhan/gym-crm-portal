@@ -5,6 +5,7 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\StoreGymRequest;
 use App\Http\Requests\SuperAdmin\UpdateGymRequest;
+use App\Mail\ClientWelcome;
 use App\Models\DropdownOption;
 use App\Models\Gym;
 use App\Models\MembershipPlan;
@@ -12,6 +13,8 @@ use App\Models\Organization;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,14 +38,14 @@ class GymController extends Controller
             ->latest()
             ->get()
             ->map(function (Organization $organization): array {
-                $primaryLocation = $organization->gyms->firstOrFail();
+                $primaryGym = $organization->gyms->firstOrFail();
 
                 return [
-                    ...$primaryLocation->toArray(),
+                    ...$primaryGym->toArray(),
                     'organization_id' => $organization->id,
                     'organization_name' => $organization->name,
-                    'multi_location_enabled' => $organization->multi_location_enabled,
-                    'locations_count' => $organization->gyms->count(),
+                    'multi_branch_enabled' => $organization->multi_branch_enabled,
+                    'branches_count' => max($organization->gyms->count() - 1, 0),
                     'administrators_count' => $organization->administrators_count,
                     'members_count' => $organization->gyms->sum('members_count'),
                 ];
@@ -63,10 +66,10 @@ class GymController extends Controller
      */
     public function store(StoreGymRequest $request): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
+        [$gym, $administrator] = DB::transaction(function () use ($request): array {
             $organization = Organization::query()->create([
                 'name' => $request->validated('name'),
-                'multi_location_enabled' => false,
+                'multi_branch_enabled' => false,
             ]);
             $gym = $organization->gyms()->create($request->safe()->only([
                 'name',
@@ -89,7 +92,17 @@ class GymController extends Controller
             ]);
 
             $administrator->accessibleGyms()->attach($gym);
+
+            return [$gym, $administrator];
         });
+
+        $passwordToken = Password::broker()->createToken($administrator);
+        Mail::to($administrator)->send(new ClientWelcome(
+            administrator: $administrator,
+            gym: $gym,
+            actionUrl: route('password.reset', ['token' => $passwordToken, 'email' => $administrator->email]),
+            actionLabel: 'Set your password',
+        ));
 
         return back()->with('success', 'Gym client and administrator created successfully.');
     }
