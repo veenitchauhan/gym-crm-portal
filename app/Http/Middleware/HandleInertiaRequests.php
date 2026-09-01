@@ -19,9 +19,26 @@ class HandleInertiaRequests extends Middleware
                     'id', 'name', 'email', 'role', 'phone', 'membership_plan', 'membership_expires_at',
                 ]),
             ],
-            'gym' => fn (): ?array => $request->user()?->gym ? [
-                'name' => $request->user()->gym->name,
+            'gym' => fn (): ?array => $request->attributes->get('active_gym') ? [
+                'id' => $request->attributes->get('active_gym')->id,
+                'name' => $request->attributes->get('active_gym')->name,
             ] : null,
+            'locationAccess' => function () use ($request): ?array {
+                if (! $request->user()?->isAdmin()) {
+                    return null;
+                }
+
+                $activeGym = $request->attributes->get('active_gym');
+                $availableGyms = $request->attributes->get('available_gyms', collect());
+
+                return [
+                    'activeGymId' => $activeGym?->id,
+                    'gyms' => $availableGyms->map(fn ($gym): array => [
+                        'id' => $gym->id,
+                        'name' => $gym->name,
+                    ])->values(),
+                ];
+            },
             'impersonating' => fn (): bool => (bool) $request->session()->get('super_admin_authenticated', false) && auth('web')->check(),
             'flash' => ['success' => fn (): ?string => $request->session()->get('success')],
         ];

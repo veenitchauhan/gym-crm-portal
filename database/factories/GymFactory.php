@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Gym;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,6 +19,7 @@ class GymFactory extends Factory
     public function definition(): array
     {
         return [
+            'organization_id' => Organization::factory(),
             'name' => fake()->company().' Fitness',
             'email' => fake()->companyEmail(),
             'phone' => fake()->phoneNumber(),

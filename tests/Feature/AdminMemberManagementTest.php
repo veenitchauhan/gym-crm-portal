@@ -122,8 +122,9 @@ class AdminMemberManagementTest extends TestCase
 
     public function test_member_cannot_update_or_delete_another_member(): void
     {
-        $member = User::factory()->member()->create();
-        $otherMember = User::factory()->member()->create();
+        $gym = Gym::factory()->create();
+        $member = User::factory()->for($gym)->member()->create();
+        $otherMember = User::factory()->for($gym)->member()->create();
 
         $this->actingAs($member)->put("/admin/members/{$otherMember->id}", [])->assertForbidden();
         $this->actingAs($member)->delete("/admin/members/{$otherMember->id}")->assertForbidden();

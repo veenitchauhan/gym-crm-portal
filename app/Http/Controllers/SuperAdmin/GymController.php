@@ -8,6 +8,7 @@ use App\Http\Requests\SuperAdmin\UpdateGymRequest;
 use App\Models\DropdownOption;
 use App\Models\Gym;
 use App\Models\MembershipPlan;
+use App\Models\Organization;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -21,13 +22,35 @@ class GymController extends Controller
      */
     public function index(): Response
     {
-        $gyms = Gym::query()->withCount([
-            'users as administrators_count' => fn ($query) => $query->where('role', 'admin'),
-            'users as members_count' => fn ($query) => $query->where('role', 'member'),
-        ])->latest()->get();
+        $clients = Organization::query()
+            ->with([
+                'gyms' => fn ($query) => $query
+                    ->withCount([
+                        'users as members_count' => fn ($users) => $users->where('role', UserRole::Member),
+                    ])
+                    ->oldest()
+                    ->orderBy('id'),
+            ])
+            ->withCount('administrators')
+            ->latest()
+            ->get()
+            ->map(function (Organization $organization): array {
+                $primaryLocation = $organization->gyms->firstOrFail();
+
+                return [
+                    ...$primaryLocation->toArray(),
+                    'organization_id' => $organization->id,
+                    'organization_name' => $organization->name,
+                    'multi_location_enabled' => $organization->multi_location_enabled,
+                    'locations_count' => $organization->gyms->count(),
+                    'administrators_count' => $organization->administrators_count,
+                    'members_count' => $organization->gyms->sum('members_count'),
+                ];
+            })
+            ->values();
 
         return Inertia::render('SuperAdmin/Dashboard', [
-            'gyms' => $gyms,
+            'gyms' => $clients,
             'superAdmin' => [
                 'name' => config('super-admin.name'),
                 'username' => config('super-admin.username'),
@@ -41,7 +64,11 @@ class GymController extends Controller
     public function store(StoreGymRequest $request): RedirectResponse
     {
         DB::transaction(function () use ($request): void {
-            $gym = Gym::query()->create($request->safe()->only([
+            $organization = Organization::query()->create([
+                'name' => $request->validated('name'),
+                'multi_location_enabled' => false,
+            ]);
+            $gym = $organization->gyms()->create($request->safe()->only([
                 'name',
                 'email',
                 'phone',
@@ -54,12 +81,14 @@ class GymController extends Controller
             DropdownOption::createDefaultsForGym($gym);
             MembershipPlan::syncDropdownOptionsForGym($gym);
 
-            $gym->users()->create([
+            $administrator = $gym->users()->create([
                 'name' => $request->validated('administrator_name'),
                 'email' => $request->validated('administrator_email'),
                 'password' => $request->validated('administrator_password'),
                 'role' => UserRole::Admin,
             ]);
+
+            $administrator->accessibleGyms()->attach($gym);
         });
 
         return back()->with('success', 'Gym client and administrator created successfully.');
@@ -70,7 +99,20 @@ class GymController extends Controller
      */
     public function update(UpdateGymRequest $request, Gym $gym): RedirectResponse
     {
-        $gym->update($request->validated());
+        DB::transaction(function () use ($request, $gym): void {
+            $validated = $request->validated();
+            $gym->update($validated);
+            $gym->organization()->update(['name' => $validated['name']]);
+            $gym->organization->gyms()
+                ->whereKeyNot($gym->id)
+                ->update([
+                    'subscription_plan' => $validated['subscription_plan'],
+                    'subscription_status' => $validated['subscription_status'],
+                    'subscription_expires_at' => $validated['subscription_expires_at'],
+                    'monthly_fee' => $validated['monthly_fee'],
+                    'payment_status' => $validated['payment_status'],
+                ]);
+        });
 
         return back()->with('success', 'Gym client updated successfully.');
     }

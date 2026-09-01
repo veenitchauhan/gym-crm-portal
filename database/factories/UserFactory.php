@@ -52,11 +52,17 @@ class UserFactory extends Factory
 
     public function admin(): static
     {
-        return $this->state(fn (array $attributes): array => [
-            'role' => UserRole::Admin,
-            'membership_plan' => null,
-            'membership_expires_at' => null,
-        ]);
+        return $this
+            ->state(fn (array $attributes): array => [
+                'role' => UserRole::Admin,
+                'membership_plan' => null,
+                'membership_expires_at' => null,
+            ])
+            ->afterCreating(function (User $user): void {
+                if ($user->gym_id !== null) {
+                    $user->accessibleGyms()->syncWithoutDetaching([$user->gym_id]);
+                }
+            });
     }
 
     public function member(): static

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Gym;
+use App\Models\Organization;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -17,7 +18,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $organization = Organization::query()->firstOrCreate(['name' => 'Downtown Club']);
         $gym = Gym::query()->firstOrCreate(['email' => 'admin@gymcrmportal.test'], [
+            'organization_id' => $organization->id,
             'name' => 'Downtown Club',
             'subscription_plan' => 'Growth',
             'subscription_status' => 'active',

@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Middleware\EnsureGymResourceBelongsToActiveGym;
 use App\Http\Middleware\EnsureSuperAdminAuthenticated;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveActiveGym;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [HandleInertiaRequests::class]);
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'active_gym' => ResolveActiveGym::class,
+            'gym_resource' => EnsureGymResourceBelongsToActiveGym::class,
             'super_admin' => EnsureSuperAdminAuthenticated::class,
         ]);
         $middleware->redirectGuestsTo(fn (Request $request): string => $request->is('super-admin/*')

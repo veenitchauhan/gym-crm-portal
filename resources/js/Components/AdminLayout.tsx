@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import FlashNotification from '@/Components/FlashNotification';
+import SelectDropdown from './SelectDropdown';
 
 const navigation = [
     ['Overview', '/admin/dashboard', LayoutDashboard], ['Members', '/admin/members', Users],
@@ -20,12 +21,16 @@ type Props = {
 };
 
 export default function AdminLayout({ activeSection, children, user }: Props) {
-    const { gym, impersonating } = usePage<{ gym: { name: string } | null; impersonating: boolean }>().props;
+    const { gym, impersonating, locationAccess } = usePage<{ gym: { id: number; name: string } | null; impersonating: boolean; locationAccess: { activeGymId: number | null; gyms: { id: number; name: string }[] } | null }>().props;
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState('');
     const initials = user.name.split(' ').map(part => part[0]).slice(0, 2).join('');
 
     const branding = gym ?? { name: 'Gym workspace' };
+    const switchGym = (gymId: string) => {
+        router.put(`/admin/active-gym/${gymId}`, {}, { preserveScroll: true });
+        setMenuOpen(false);
+    };
     const openSearchResult = () => { const term=search.trim().toLowerCase();const match=navigation.find(([label])=>label.toLowerCase().includes(term));if(match){router.visit(match[1]);setSearch('');} };
     useEffect(()=>{const shortcut=(event:KeyboardEvent)=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();document.querySelector<HTMLInputElement>('.global-search input')?.focus();}};window.addEventListener('keydown',shortcut);return()=>window.removeEventListener('keydown',shortcut);},[]);
 
@@ -33,7 +38,7 @@ export default function AdminLayout({ activeSection, children, user }: Props) {
         <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
             <Link href="/admin/dashboard" className="brand"><span className="brand-mark"><Dumbbell size={20}/></span><span>{branding.name}</span></Link>
             <button className="close-menu" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X/></button>
-            <div className="location"><div><small>MANAGING</small><strong>{branding.name}</strong></div><Link className={`location-settings ${activeSection === 'Settings' ? 'active' : ''}`} href="/settings/profile" aria-label="Open settings" title="Settings"><Settings size={19}/></Link></div>
+            <div className="location"><div><small>MANAGING</small>{locationAccess && locationAccess.gyms.length > 1 ? <SelectDropdown className="location-select" aria-label="Active gym location" value={locationAccess.activeGymId ?? ''} onChange={event => switchGym(event.target.value)}>{locationAccess.gyms.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</SelectDropdown> : <strong>{branding.name}</strong>}</div><Link className={`location-settings ${activeSection === 'Settings' ? 'active' : ''}`} href="/settings/profile" aria-label="Open settings" title="Settings"><Settings size={19}/></Link></div>
             <nav>
                 <small className="nav-label">WORKSPACE</small>
                 {navigation.map(([label, href, Icon]) => <Link key={label} href={href} className={activeSection === label ? 'active' : ''} onClick={() => setMenuOpen(false)}><Icon size={19}/><span>{label}</span></Link>)}

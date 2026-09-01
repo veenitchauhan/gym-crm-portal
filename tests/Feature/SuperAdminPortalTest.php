@@ -58,6 +58,7 @@ class SuperAdminPortalTest extends TestCase
         $this->assertSame('Priya Sharma', $gymAdministrator->name);
         $this->assertSame('priya@pulse.test', $gymAdministrator->email);
         $this->assertTrue($gymAdministrator->isAdmin());
+        $this->assertTrue($gymAdministrator->accessibleGyms->contains($gym));
         $this->assertTrue(Hash::check('secure-password', $gymAdministrator->password));
 
         $this->withSession(['super_admin_authenticated' => true])->put("/super-admin/gyms/{$gym->id}", [...$payload, 'payment_status' => 'overdue'])->assertRedirect();

@@ -10,7 +10,8 @@ class GymStatusController extends Controller
 {
     public function update(Gym $gym): RedirectResponse
     {
-        $gym->update(['is_active' => ! $gym->is_active]);
+        $gym->organization->gyms()->update(['is_active' => ! $gym->is_active]);
+        $gym->refresh();
 
         $status = $gym->is_active ? 'enabled' : 'disabled';
 

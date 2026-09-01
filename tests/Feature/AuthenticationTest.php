@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\ResolveActiveGym;
 use App\Models\Gym;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,12 +28,14 @@ class AuthenticationTest extends TestCase
             'phone' => '9999999999',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertRedirect(route('dashboard'));
+        ])->assertRedirect(route('dashboard'))
+            ->assertSessionHas(ResolveActiveGym::SESSION_KEY);
 
         $gym = Gym::query()->sole();
         $administrator = User::query()->sole();
         $this->assertSame($gym->id, $administrator->gym_id);
         $this->assertTrue($administrator->isAdmin());
+        $this->assertTrue($administrator->accessibleGyms->contains($gym));
         $this->assertSame(6, $gym->dropdownOptions()->distinct('category')->count('category'));
         $this->assertAuthenticatedAs($administrator);
     }

@@ -1,29 +1,71 @@
 import FlashNotification from '@/Components/FlashNotification';
+import SelectDropdown from '../../Components/SelectDropdown';
 import { Form, Head, router } from '@inertiajs/react';
-import { Building2, Calendar, CheckCircle2, CreditCard, Edit3, LogIn, LogOut, Plus, ShieldCheck, Users, X } from 'lucide-react';
+import { Building2, Calendar, CreditCard, Edit3, LogIn, LogOut, MapPin, Plus, ShieldCheck, Users, X } from 'lucide-react';
 import { useState } from 'react';
 
-type Gym = { id:number;name:string;email:string|null;phone:string|null;subscription_plan:string;subscription_status:string;subscription_expires_at:string|null;monthly_fee:string;payment_status:string;is_active:boolean;administrators_count:number;members_count:number };
+type GymClient = { id: number; organization_id: number; organization_name: string; name: string; email: string | null; phone: string | null; subscription_plan: string; subscription_status: string; subscription_expires_at: string | null; monthly_fee: string; payment_status: string; is_active: boolean; administrators_count: number; members_count: number; multi_location_enabled: boolean; locations_count: number };
 
-export default function Dashboard({ gyms, superAdmin }: { gyms: Gym[]; superAdmin: { name: string; username: string } }) {
-    const [editing, setEditing] = useState<Gym | null>(null);
+export default function Dashboard({ gyms, superAdmin }: { gyms: GymClient[]; superAdmin: { name: string; username: string } }) {
+    const [editing, setEditing] = useState<GymClient | null>(null);
     const [creating, setCreating] = useState(false);
-    return <><Head title="Gym clients · Super Admin"/><div className="sa-shell"><header className="sa-top"><div className="sa-login-brand"><span><ShieldCheck/></span><div><strong>Gym CRM Portal</strong><small>Super Admin</small></div></div><div><span>{superAdmin.name}</span><button onClick={() => router.post('/super-admin/logout')}><LogOut/> Sign out</button></div></header><main className="sa-content"><section className="page-heading"><div><span className="eyebrow">CLIENT OPERATIONS</span><h1>Gym clients</h1><p>Control subscriptions, payments, access, and brand identity.</p></div><button className="primary" onClick={() => setCreating(true)}><Plus/> Add gym client</button></section><section className="sa-stats"><Stat icon={<Building2/>} label="Total gyms" value={gyms.length}/><Stat icon={<CheckCircle2/>} label="Active clients" value={gyms.filter(gym => gym.is_active).length}/><Stat icon={<CreditCard/>} label="Payments current" value={gyms.filter(gym => gym.payment_status === 'paid').length}/><Stat icon={<Users/>} label="Total members" value={gyms.reduce((sum, gym) => sum + gym.members_count, 0)}/></section><section className="sa-gym-grid">{gyms.map(gym => <GymCard key={gym.id} gym={gym} edit={() => setEditing(gym)}/>)}</section>{gyms.length === 0 && <div className="card compact-empty"><Building2/><strong>No gym clients yet</strong><span>Add the first gym to begin managing the platform.</span></div>}</main></div>{(creating || editing) && <GymModal gym={editing} close={() => { setCreating(false); setEditing(null); }}/>}<FlashNotification/></>;
+
+    return <>
+        <Head title="Gym clients · Super Admin" />
+        <div className="sa-shell">
+            <header className="sa-top">
+                <div className="sa-login-brand"><span><ShieldCheck /></span><div><strong>Gym CRM Portal</strong><small>Super Admin</small></div></div>
+                <div><span>{superAdmin.name}</span><button onClick={() => router.post('/super-admin/logout')}><LogOut /> Sign out</button></div>
+            </header>
+            <main className="sa-content">
+                <section className="page-heading">
+                    <div><span className="eyebrow">CLIENT OPERATIONS</span><h1>Gym clients</h1><p>Control subscriptions, locations, payments, and access.</p></div>
+                    <button className="primary" onClick={() => setCreating(true)}><Plus /> Add gym client</button>
+                </section>
+                <section className="sa-stats">
+                    <Stat icon={<Building2 />} label="Total clients" value={gyms.length} />
+                    <Stat icon={<MapPin />} label="Total locations" value={gyms.reduce((sum, gym) => sum + gym.locations_count, 0)} />
+                    <Stat icon={<CreditCard />} label="Payments current" value={gyms.filter(gym => gym.payment_status === 'paid').length} />
+                    <Stat icon={<Users />} label="Total members" value={gyms.reduce((sum, gym) => sum + gym.members_count, 0)} />
+                </section>
+                <section className="sa-gym-grid">{gyms.map(gym => <GymCard key={gym.organization_id} gym={gym} edit={() => setEditing(gym)} />)}</section>
+                {gyms.length === 0 && <div className="card compact-empty"><Building2 /><strong>No gym clients yet</strong><span>Add the first gym to begin managing the platform.</span></div>}
+            </main>
+        </div>
+        {(creating || editing) && <GymModal gym={editing} close={() => { setCreating(false); setEditing(null); }} />}
+        <FlashNotification />
+    </>;
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) { return <article>{icon}<div><small>{label}</small><strong>{value}</strong></div></article>; }
 
-function GymCard({ gym, edit }: { gym: Gym; edit: () => void }) {
-    const fee = new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(Number(gym.monthly_fee));
-    const nameParts = gym.name.trim().split(/\s+/);
-    const initials = (nameParts.length > 1
-        ? nameParts.slice(0, 2).map(part => part[0]).join('')
-        : nameParts[0]?.slice(0, 2) ?? ''
-    ).toUpperCase();
-    return <article className="sa-gym-card"><div className="sa-gym-brand"><span>{initials}</span><div><h2>{gym.name}</h2><p>{gym.email || 'No contact email'}</p></div><i className={gym.is_active ? 'active' : 'inactive'}>{gym.is_active ? 'Active' : 'Disabled'}</i></div><div className="sa-gym-metrics"><div><small>Plan</small><strong>{gym.subscription_plan}</strong></div><div><small>Monthly fee</small><strong>{fee}</strong></div><div><small>Payment</small><strong className={`payment-${gym.payment_status}`}>{gym.payment_status}</strong></div><div><small>Members</small><strong>{gym.members_count}</strong></div></div><div className="sa-gym-expiry"><Calendar/> Subscription {gym.subscription_expires_at ? `through ${new Date(gym.subscription_expires_at).toLocaleDateString('en-IN')}` : 'has no expiry date'}</div><div className="sa-gym-actions"><button className="primary" disabled={gym.administrators_count === 0} onClick={() => router.post(`/super-admin/gyms/${gym.id}/login`)}><LogIn/> Login</button><button className="secondary" onClick={edit}><Edit3/> Edit</button><button className={`gym-status-button ${gym.is_active ? 'enabled' : 'disabled'}`} onClick={() => router.patch(`/super-admin/gyms/${gym.id}/status`)}>{gym.is_active ? 'Enabled' : 'Disabled'}</button></div>{gym.administrators_count === 0 && <small className="sa-gym-warning">No client administrator configured</small>}</article>;
+function GymCard({ gym, edit }: { gym: GymClient; edit: () => void }) {
+    const fee = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(gym.monthly_fee));
+    const nameParts = gym.organization_name.trim().split(/\s+/);
+    const initials = (nameParts.length > 1 ? nameParts.slice(0, 2).map(part => part[0]).join('') : nameParts[0]?.slice(0, 2) ?? '').toUpperCase();
+
+    const openClient = () => router.get(`/super-admin/organizations/${gym.organization_id}`);
+    const runCardAction = (event: React.MouseEvent, action: () => void) => {
+        event.stopPropagation();
+        action();
+    };
+
+    return <article className="sa-gym-card clickable" role="link" tabIndex={0} onClick={openClient} onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openClient();
+        }
+    }}>
+        <div className="sa-gym-brand"><span>{initials}</span><div><h2>{gym.organization_name}</h2><p>{gym.email || 'No contact email'}</p></div><i className={gym.is_active ? 'active' : 'inactive'}>{gym.is_active ? 'Active' : 'Disabled'}</i></div>
+        <div className="sa-gym-metrics"><div><small>Plan</small><strong>{gym.subscription_plan}</strong></div><div><small>Monthly fee</small><strong>{fee}</strong></div><div><small>Payment</small><strong className={`payment-${gym.payment_status}`}>{gym.payment_status}</strong></div><div><small>Members</small><strong>{gym.members_count}</strong></div></div>
+        <div className="sa-gym-expiry"><Calendar /> Subscription {gym.subscription_expires_at ? `through ${new Date(gym.subscription_expires_at).toLocaleDateString('en-IN')}` : 'has no expiry date'}</div>
+        <div className="sa-gym-actions"><button className="primary" disabled={gym.administrators_count === 0} onClick={event => runCardAction(event, () => router.post(`/super-admin/gyms/${gym.id}/login`))}><LogIn /> Login</button><button className="secondary" onClick={event => runCardAction(event, edit)}><Edit3 /> Edit</button><button className={`gym-status-button ${gym.is_active ? 'enabled' : 'disabled'}`} onClick={event => runCardAction(event, () => router.patch(`/super-admin/gyms/${gym.id}/status`))}>{gym.is_active ? 'Enabled' : 'Disabled'}</button></div>
+        <div className="sa-location-controls"><div><strong>Multiple gyms</strong><small>{gym.multi_location_enabled ? `${gym.locations_count} locations enabled` : 'Single gym client'}</small></div><span className="sa-card-open">Open client <span aria-hidden="true">→</span></span><button className={`location-toggle ${gym.multi_location_enabled ? 'enabled' : 'disabled'}`} onClick={event => runCardAction(event, () => router.patch(`/super-admin/organizations/${gym.organization_id}/multi-location`))}>{gym.multi_location_enabled ? 'On' : 'Off'}</button></div>
+        {gym.administrators_count === 0 && <small className="sa-gym-warning">No client administrator configured</small>}
+    </article>;
 }
 
-function GymModal({ gym, close }: { gym: Gym | null; close: () => void }) {
-    const defaults = gym ?? { name:'',email:'',phone:'',subscription_plan:'Starter',subscription_status:'trial',subscription_expires_at:'',monthly_fee:'0',payment_status:'pending' };
-    return <div className="modal-backdrop" onMouseDown={close}><div onMouseDown={event => event.stopPropagation()}><Form action={gym ? `/super-admin/gyms/${gym.id}` : '/super-admin/gyms'} method={gym ? 'put' : 'post'} className="modal sa-gym-modal" onSuccess={close}>{({ errors, processing }) => <><div className="modal-head"><div><h2>{gym ? 'Manage gym client' : 'Add gym client'}</h2><p>{gym ? 'Subscription, payment, access and branding configuration.' : 'Create the gym workspace and its first administrator account.'}</p></div><button type="button" onClick={close}><X/></button></div><div className="workspace-form-grid"><label>Gym name<input name="name" defaultValue={defaults.name} required/></label><label>Contact email<input name="email" type="email" defaultValue={defaults.email ?? ''}/></label><label>Phone<input name="phone" defaultValue={defaults.phone ?? ''}/></label><label>Subscription plan<select name="subscription_plan" defaultValue={defaults.subscription_plan}><option>Starter</option><option>Growth</option><option>Enterprise</option></select></label><label>Subscription status<select name="subscription_status" defaultValue={defaults.subscription_status}><option value="trial">Trial</option><option value="active">Active</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option></select></label><label>Expires on<input name="subscription_expires_at" type="date" defaultValue={defaults.subscription_expires_at?.slice(0, 10) ?? ''}/></label><label>Monthly fee (₹)<input name="monthly_fee" type="number" min="0" defaultValue={defaults.monthly_fee}/></label><label>Payment status<select name="payment_status" defaultValue={defaults.payment_status}><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select></label>{!gym && <><div className="form-section-heading"><strong>First administrator</strong><span>This person can sign in and manage the gym workspace.</span></div><label>Administrator name<input name="administrator_name" autoComplete="name" required/></label><label>Administrator email<input name="administrator_email" type="email" autoComplete="email" required/></label><label>Temporary password<input name="administrator_password" type="password" autoComplete="new-password" minLength={8} required/></label><label>Confirm password<input name="administrator_password_confirmation" type="password" autoComplete="new-password" minLength={8} required/></label></>}</div>{Object.values(errors)[0] && <em className="form-error">{Object.values(errors)[0]}</em>}<div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing}>{processing ? 'Saving…' : gym ? 'Save gym client' : 'Create gym and administrator'}</button></div></>}</Form></div></div>;
+function GymModal({ gym, close }: { gym: GymClient | null; close: () => void }) {
+    const defaults = gym ?? { name: '', email: '', phone: '', subscription_plan: 'Starter', subscription_status: 'trial', subscription_expires_at: '', monthly_fee: '0', payment_status: 'pending' };
+    return <div className="modal-backdrop" onMouseDown={close}><div onMouseDown={event => event.stopPropagation()}><Form action={gym ? `/super-admin/gyms/${gym.id}` : '/super-admin/gyms'} method={gym ? 'put' : 'post'} className="modal sa-gym-modal" onSuccess={close}>{({ errors, processing }) => <><div className="modal-head"><div><h2>{gym ? 'Manage gym client' : 'Add gym client'}</h2><p>{gym ? 'Subscription, payment, and access configuration.' : 'Create the gym workspace and its first administrator account.'}</p></div><button type="button" onClick={close}><X /></button></div><div className="workspace-form-grid"><label>Gym name<input name="name" defaultValue={defaults.name} required /></label><label>Contact email<input name="email" type="email" defaultValue={defaults.email ?? ''} /></label><label>Phone<input name="phone" defaultValue={defaults.phone ?? ''} /></label><label>Subscription plan<SelectDropdown name="subscription_plan" defaultValue={defaults.subscription_plan}><option>Starter</option><option>Growth</option><option>Enterprise</option></SelectDropdown></label><label>Subscription status<SelectDropdown name="subscription_status" defaultValue={defaults.subscription_status}><option value="trial">Trial</option><option value="active">Active</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option></SelectDropdown></label><label>Expires on<input name="subscription_expires_at" type="date" defaultValue={defaults.subscription_expires_at?.slice(0, 10) ?? ''} /></label><label>Monthly fee (₹)<input name="monthly_fee" type="number" min="0" defaultValue={defaults.monthly_fee} /></label><label>Payment status<SelectDropdown name="payment_status" defaultValue={defaults.payment_status}><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></SelectDropdown></label>{!gym && <><div className="form-section-heading"><strong>First administrator</strong><span>This person can sign in and manage the gym workspace.</span></div><label>Administrator name<input name="administrator_name" autoComplete="name" required /></label><label>Administrator email<input name="administrator_email" type="email" autoComplete="email" required /></label><label>Temporary password<input name="administrator_password" type="password" autoComplete="new-password" minLength={8} required /></label><label>Confirm password<input name="administrator_password_confirmation" type="password" autoComplete="new-password" minLength={8} required /></label></>}</div>{Object.values(errors)[0] && <em className="form-error">{Object.values(errors)[0]}</em>}<div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={processing}>{processing ? 'Saving…' : gym ? 'Save gym client' : 'Create gym and administrator'}</button></div></>}</Form></div></div>;
 }
