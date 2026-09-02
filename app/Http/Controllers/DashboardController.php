@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\AdminPermission;
 use App\BookingStatus;
 use App\MembershipStatus;
 use App\Models\Attendance;
@@ -22,9 +23,31 @@ class DashboardController extends Controller
 {
     public function index(Request $request): RedirectResponse
     {
-        $route = $request->user()->isAdmin() ? 'admin.dashboard' : 'member.dashboard';
+        if (! $request->user()->isAdmin()) {
+            return redirect()->route('member.dashboard');
+        }
 
-        return redirect()->route($route);
+        $firstVisibleModule = collect(AdminPermission::MODULES)
+            ->keys()
+            ->first(fn (string $module): bool => AdminPermission::allows($request->user(), $module, 'view'));
+
+        if ($firstVisibleModule === 'overview') {
+            return redirect()->route('admin.dashboard');
+        }
+
+        if (in_array($firstVisibleModule, ['members', 'payments', 'trainers', 'schedule', 'leads'], true)) {
+            return redirect()->route('admin.module', ['module' => $firstVisibleModule]);
+        }
+
+        if ($firstVisibleModule === 'users') {
+            return redirect()->route('users.index');
+        }
+
+        if ($firstVisibleModule === 'roles') {
+            return redirect()->route('roles.index');
+        }
+
+        return redirect()->route('settings.profile.edit');
     }
 
     public function admin(Request $request, string $module = 'overview'): Response
@@ -61,7 +84,7 @@ class DashboardController extends Controller
             ->count();
         $currentlyInside = $gym->attendances()->whereNull('checked_out_at')->count();
 
-        $members = (clone $memberQuery)
+        $members = $module === 'members' ? (clone $memberQuery)
             ->with('latestMembershipSubscription.membershipPlan')
             ->withCount(['attendances as visits' => fn ($query) => $query
                 ->whereBetween('checked_in_at', [now()->startOfMonth(), now()->endOfMonth()])])
@@ -83,7 +106,7 @@ class DashboardController extends Controller
                 'joined' => $member->created_at->format('M d, Y'),
                 'visits' => $member->visits,
                 'accent' => 'violet',
-            ]);
+            ]) : [];
 
         return Inertia::render('Dashboard', [
             'activeSection' => $activeSection,
@@ -101,7 +124,7 @@ class DashboardController extends Controller
                 ->get()
                 ->groupBy(fn (DropdownOption $option): string => $option->category->value)
                 ->map->pluck('label'),
-            'membershipPlans' => $gym->membershipPlans()
+            'membershipPlans' => in_array($module, ['members', 'leads'], true) ? $gym->membershipPlans()
                 ->withCount(['subscriptions as activeSubscriptionsCount' => fn ($query) => $query
                     ->where('status', MembershipStatus::Active)
                     ->whereDate('ends_at', '>=', today())])
@@ -115,8 +138,8 @@ class DashboardController extends Controller
                     'durationDays' => $plan->duration_days,
                     'isActive' => $plan->is_active,
                     'activeSubscriptionsCount' => $plan->activeSubscriptionsCount,
-                ]),
-            'paymentMembers' => $gym->users()
+                ]) : [],
+            'paymentMembers' => $module === 'payments' ? $gym->users()
                 ->where('role', UserRole::Member)
                 ->with('latestMembershipSubscription.membershipPlan')
                 ->orderBy('name')
@@ -127,8 +150,8 @@ class DashboardController extends Controller
                     'plan' => $member->latestMembershipSubscription?->membershipPlan->name,
                     'planPrice' => $member->latestMembershipSubscription?->membershipPlan->price,
                     'planMinimumAmount' => $member->latestMembershipSubscription?->membershipPlan->minimum_payment_amount,
-                ]),
-            'payments' => $gym->payments()
+                ]) : [],
+            'payments' => in_array($module, ['overview', 'payments'], true) ? $gym->payments()
                 ->with(['member:id,name', 'membershipSubscription.membershipPlan:id,name'])
                 ->latest('paid_at')
                 ->latest('id')
@@ -144,8 +167,8 @@ class DashboardController extends Controller
                     'paymentMethod' => $payment->payment_method,
                     'reference' => $payment->reference,
                     'paidAt' => $payment->paid_at?->format('Y-m-d\TH:i'),
-                ]),
-            'attendances' => $gym->attendances()
+                ]) : [],
+            'attendances' => $module === 'overview' ? $gym->attendances()
                 ->with('member:id,name')
                 ->latest('checked_in_at')
                 ->limit(100)
@@ -157,8 +180,8 @@ class DashboardController extends Controller
                     'checkedInAt' => $attendance->checked_in_at->format('Y-m-d\TH:i'),
                     'checkedOutAt' => $attendance->checked_out_at?->format('Y-m-d\TH:i'),
                     'notes' => $attendance->notes,
-                ]),
-            'trainers' => $gym->trainers()
+                ]) : [],
+            'trainers' => in_array($module, ['trainers', 'schedule'], true) ? $gym->trainers()
                 ->withCount(['sessions as upcomingSessionsCount' => fn ($query) => $query->where('starts_at', '>=', now())->where('is_cancelled', false)])
                 ->orderBy('name')
                 ->get()
@@ -170,9 +193,9 @@ class DashboardController extends Controller
                     'specialty' => $trainer->specialty,
                     'isActive' => $trainer->is_active,
                     'upcomingSessionsCount' => $trainer->upcomingSessionsCount,
-                ]),
-            'bookingMembers' => $gym->users()->where('role', UserRole::Member)->orderBy('name')->get(['id', 'name']),
-            'gymSessions' => $gym->sessions()
+                ]) : [],
+            'bookingMembers' => $module === 'schedule' ? $gym->users()->where('role', UserRole::Member)->orderBy('name')->get(['id', 'name']) : [],
+            'gymSessions' => $module === 'schedule' ? $gym->sessions()
                 ->with(['trainer:id,name', 'bookings' => fn ($query) => $query
                     ->where('status', BookingStatus::Booked)
                     ->with('member:id,name')])
@@ -194,8 +217,8 @@ class DashboardController extends Controller
                         'memberId' => $booking->user_id,
                         'memberName' => $booking->member->name,
                     ]),
-                ]),
-            'leads' => $gym->leads()
+                ]) : [],
+            'leads' => $module === 'leads' ? $gym->leads()
                 ->latest('updated_at')
                 ->limit(100)
                 ->get()
@@ -210,7 +233,7 @@ class DashboardController extends Controller
                     'nextFollowUpAt' => $lead->next_follow_up_at?->format('Y-m-d\TH:i'),
                     'notes' => $lead->notes,
                     'convertedUserId' => $lead->converted_user_id,
-                ]),
+                ]) : [],
         ]);
     }
 

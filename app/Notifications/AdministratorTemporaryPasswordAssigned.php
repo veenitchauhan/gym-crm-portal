@@ -30,12 +30,12 @@ class AdministratorTemporaryPasswordAssigned extends Notification
         return (new MailMessage)
             ->subject('Your temporary Gym CRM Portal password')
             ->greeting('Hello,')
-            ->line('A platform administrator has assigned a temporary password to your Gym CRM Portal account.')
+            ->line('An administrator has assigned a temporary password to your Gym CRM Portal account.')
             ->line("Login email: {$notifiable->email}")
             ->line("Temporary password: {$this->temporaryPassword}")
             ->action('Sign in and change password', route('login'))
             ->line('You must replace this temporary password immediately after signing in.')
-            ->line('If you did not expect this change, contact your platform administrator.');
+            ->line('If you did not expect this change, contact your gym administrator.');
     }
 
     /**

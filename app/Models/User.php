@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['gym_id', 'name', 'email', 'password', 'must_change_password', 'role', 'phone', 'membership_plan', 'membership_expires_at'])]
+#[Fillable(['gym_id', 'access_role_id', 'name', 'email', 'password', 'must_change_password', 'is_owner', 'role', 'phone', 'membership_plan', 'membership_expires_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -33,6 +33,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
+            'is_owner' => 'boolean',
             'role' => UserRole::class,
             'membership_expires_at' => 'date',
         ];
@@ -51,6 +52,11 @@ class User extends Authenticatable
     public function gym(): BelongsTo
     {
         return $this->belongsTo(Gym::class);
+    }
+
+    public function accessRole(): BelongsTo
+    {
+        return $this->belongsTo(AccessRole::class);
     }
 
     public function accessibleGyms(): BelongsToMany

@@ -11,7 +11,11 @@ type Member = {
 };
 
 export default function MemberShow({ member, attendances, payments }: { member:Member;attendances:Attendance[];payments:Payment[] }) {
-    const currentUser = usePage<{auth:{user:{name:string}}}>().props.auth.user;
+    const { auth, adminPermissions } = usePage<{auth:{user:{name:string}};adminPermissions:string[]}>().props;
+    const currentUser = auth.user;
+    const canCreate = adminPermissions.includes('members.create');
+    const canEdit = adminPermissions.includes('members.edit');
+    const canDelete = adminPermissions.includes('members.delete');
     const [editingAttendance, setEditingAttendance] = useState<Attendance|null>(null);
     const [checkingIn, setCheckingIn] = useState(false);
     const currentAttendance = attendances.find(item => item.id === member.currentAttendanceId) ?? null;
@@ -28,7 +32,7 @@ export default function MemberShow({ member, attendances, payments }: { member:M
             <Link href="/admin/members" className="member-back"><ArrowLeft/> Back to members</Link>
             <section className="member-profile-hero card">
                 <div className="member-profile-identity"><span className="member-profile-avatar">{initials}</span><div><span className="eyebrow">MEMBER PROFILE</span><h1>{member.name}</h1><p>Joined {new Date(member.joinedAt).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p></div></div>
-                <div className="member-profile-actions">{currentAttendance?<button className="checkout-member" onClick={checkOut}><LogOut/> Check out</button>:<button className="primary" onClick={()=>setCheckingIn(true)}><LogIn/> Check in</button>}</div>
+                <div className="member-profile-actions">{currentAttendance ? canEdit&&<button className="checkout-member" onClick={checkOut}><LogOut/> Check out</button> : canCreate&&<button className="primary" onClick={()=>setCheckingIn(true)}><LogIn/> Check in</button>}</div>
             </section>
             <section className="member-detail-grid">
                 <article className="card member-contact-card"><div className="card-head"><div><h2>Contact details</h2><p>Member identity and contact information</p></div><UserRound/></div><dl><div><dt><Mail/> Email</dt><dd>{member.email}</dd></div><div><dt><Phone/> Phone</dt><dd>{member.phone??'Not provided'}</dd></div></dl></article>
@@ -37,16 +41,16 @@ export default function MemberShow({ member, attendances, payments }: { member:M
                 <a className="card member-stat-card metric-link" href="#attendance-history"><Clock3/><span>All time</span><strong>{member.attendanceCount}</strong><small>attendance records</small></a>
             </section>
             <span className="section-anchor" id="attendance-history" />
-            <section className="card member-history-card"><div className="card-head"><div><h2>Attendance history</h2><p>Check-ins and check-outs for this member only</p></div>{!currentAttendance&&<button className="secondary" onClick={()=>setCheckingIn(true)}><LogIn/> Add check-in</button>}</div>{attendances.length===0?<div className="compact-empty table-empty"><CalendarCheck/><strong>No attendance yet</strong><span>Use Check in to record the member's first visit.</span></div>:<div className="member-attendance-list"><div className="member-attendance-row labels"><span>Checked in</span><span>Checked out</span><span>Duration</span><span>Notes</span><span>Actions</span></div>{attendances.map(item=><AttendanceRow key={item.id} attendance={item} edit={()=>setEditingAttendance(item)}/>)}</div>}</section>
+            <section className="card member-history-card"><div className="card-head"><div><h2>Attendance history</h2><p>Check-ins and check-outs for this member only</p></div>{canCreate&&!currentAttendance&&<button className="secondary" onClick={()=>setCheckingIn(true)}><LogIn/> Add check-in</button>}</div>{attendances.length===0?<div className="compact-empty table-empty"><CalendarCheck/><strong>No attendance yet</strong><span>Use Check in to record the member's first visit.</span></div>:<div className="member-attendance-list"><div className="member-attendance-row labels"><span>Checked in</span><span>Checked out</span><span>Duration</span><span>Notes</span><span>Actions</span></div>{attendances.map(item=><AttendanceRow key={item.id} attendance={item} edit={()=>setEditingAttendance(item)} canEdit={canEdit} canDelete={canDelete}/>)}</div>}</section>
             <section className="card member-history-card"><div className="card-head"><div><h2>Recent payments</h2><p>Latest transactions associated with this member</p></div><CreditCard/></div>{payments.length===0?<div className="compact-empty small"><CreditCard/><strong>No payments recorded</strong><span>Payments added for this member will appear here.</span></div>:<div className="member-payment-list">{payments.map(payment=><div key={payment.id}><div><strong>₹{Number(payment.amount).toLocaleString('en-IN')}</strong><span>{payment.method}</span></div><span>{payment.paidAt?new Date(payment.paidAt).toLocaleString('en-IN'):'Date not recorded'}</span><i className={`status status-${payment.status==='paid'?'active':'inactive'}`}>{payment.status}</i></div>)}</div>}</section>
         </div>
         {(checkingIn||editingAttendance)&&<AttendanceModal member={member} attendance={editingAttendance} close={()=>{setCheckingIn(false);setEditingAttendance(null);}}/>}
     </AdminLayout></>;
 }
 
-function AttendanceRow({attendance,edit}:{attendance:Attendance;edit:()=>void}) {
+function AttendanceRow({attendance,edit,canEdit,canDelete}:{attendance:Attendance;edit:()=>void;canEdit:boolean;canDelete:boolean}) {
     const duration = attendance.checkedOutAt ? Math.max(1,Math.round((new Date(attendance.checkedOutAt).getTime()-new Date(attendance.checkedInAt).getTime())/60000)) : null;
-    return <div className="member-attendance-row"><span>{new Date(attendance.checkedInAt).toLocaleString('en-IN')}</span><span>{attendance.checkedOutAt?new Date(attendance.checkedOutAt).toLocaleString('en-IN'):<i className="status status-active">Inside</i>}</span><span>{duration===null?'In progress':`${Math.floor(duration/60)}h ${duration%60}m`}</span><span>{attendance.notes??'—'}</span><div className="row-actions"><button className="edit-action" onClick={edit} aria-label="Edit attendance"><Pencil/></button><button className="delete-action" onClick={()=>window.confirm('Delete this attendance entry?')&&router.delete(`/admin/attendances/${attendance.id}`,{preserveScroll:true})} aria-label="Delete attendance"><Trash2/></button></div></div>;
+    return <div className="member-attendance-row"><span>{new Date(attendance.checkedInAt).toLocaleString('en-IN')}</span><span>{attendance.checkedOutAt?new Date(attendance.checkedOutAt).toLocaleString('en-IN'):<i className="status status-active">Inside</i>}</span><span>{duration===null?'In progress':`${Math.floor(duration/60)}h ${duration%60}m`}</span><span>{attendance.notes??'—'}</span><div className="row-actions">{canEdit&&<button className="edit-action" onClick={edit} aria-label="Edit attendance"><Pencil/></button>}{canDelete&&<button className="delete-action" onClick={()=>window.confirm('Delete this attendance entry?')&&router.delete(`/admin/attendances/${attendance.id}`,{preserveScroll:true})} aria-label="Delete attendance"><Trash2/></button>}</div></div>;
 }
 
 function AttendanceModal({member,attendance,close}:{member:Member;attendance:Attendance|null;close:()=>void}) {

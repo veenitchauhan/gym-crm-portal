@@ -55,6 +55,7 @@ class UserFactory extends Factory
         return $this
             ->state(fn (array $attributes): array => [
                 'role' => UserRole::Admin,
+                'is_owner' => true,
                 'membership_plan' => null,
                 'membership_expires_at' => null,
             ])

@@ -32,6 +32,11 @@ class Gym extends Model
         return $this->hasMany(User::class);
     }
 
+    public function accessRoles(): HasMany
+    {
+        return $this->hasMany(AccessRole::class);
+    }
+
     public function assignedAdministrators(): BelongsToMany
     {
         return $this->belongsToMany(User::class)

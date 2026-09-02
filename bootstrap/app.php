@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAdminPermission;
 use App\Http\Middleware\EnsureGymResourceBelongsToActiveGym;
 use App\Http\Middleware\EnsurePasswordHasBeenChanged;
 use App\Http\Middleware\EnsureSuperAdminAuthenticated;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [HandleInertiaRequests::class]);
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'permission' => EnsureAdminPermission::class,
             'active_gym' => ResolveActiveGym::class,
             'gym_resource' => EnsureGymResourceBelongsToActiveGym::class,
             'password_changed' => EnsurePasswordHasBeenChanged::class,

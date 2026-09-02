@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\AdminPermission;
 use App\DropdownCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
@@ -27,7 +28,7 @@ class ProfileController extends Controller
         $membershipPlans = $request->user()->gym?->membershipPlans()
             ->get(['name', 'price', 'minimum_payment_amount'])
             ->keyBy('name') ?? collect();
-        $categories = $request->user()->isAdmin() && $request->user()->gym
+        $categories = $request->user()->gym && AdminPermission::allows($request->user(), 'settings', 'view')
             ? collect($usedDropdownCategories)->map(fn (DropdownCategory $category): array => [
                 'key' => $category->value,
                 'label' => $category->label(),

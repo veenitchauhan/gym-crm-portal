@@ -47,6 +47,7 @@ class RegisteredUserController extends Controller
             $administrator = $gym->users()->create([
                 ...$request->safe()->only(['name', 'email', 'phone', 'password']),
                 'role' => UserRole::Admin,
+                'is_owner' => true,
             ]);
 
             $administrator->accessibleGyms()->attach($gym);

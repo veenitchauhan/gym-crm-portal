@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Alex Morgan',
             'password' => 'password',
             'role' => UserRole::Admin,
+            'is_owner' => true,
         ]);
 
         $this->call(DropdownOptionSeeder::class, false, ['gym' => $gym]);

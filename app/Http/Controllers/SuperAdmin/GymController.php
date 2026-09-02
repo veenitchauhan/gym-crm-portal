@@ -89,6 +89,7 @@ class GymController extends Controller
                 'email' => $request->validated('administrator_email'),
                 'password' => $request->validated('administrator_password'),
                 'role' => UserRole::Admin,
+                'is_owner' => true,
             ]);
 
             $administrator->accessibleGyms()->attach($gym);

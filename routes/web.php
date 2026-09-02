@@ -9,7 +9,11 @@ use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\MemberProfileController;
 use App\Http\Controllers\Admin\MembershipPlanController;
 use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\RoleManagementController;
+use App\Http\Controllers\Admin\StaffImpersonationController;
+use App\Http\Controllers\Admin\StaffTemporaryPasswordController;
 use App\Http\Controllers\Admin\TrainerController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -76,6 +80,10 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/register', [RegisteredUserController::class, 'store'])->middleware('throttle:6,1');
 });
 
+Route::post('/admin/staff-impersonation/exit', [StaffImpersonationController::class, 'destroy'])
+    ->middleware('auth')
+    ->name('admin.staff-impersonation.destroy');
+
 Route::middleware(['auth', 'password_changed', 'active_gym', 'gym_resource'])->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
@@ -85,51 +93,69 @@ Route::middleware(['auth', 'password_changed', 'active_gym', 'gym_resource'])->g
 
     Route::get('/admin/dashboard', [DashboardController::class, 'admin'])
         ->defaults('module', 'overview')
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:overview,view'])
         ->name('admin.dashboard');
 
     Route::get('/admin/members/{member}', [MemberProfileController::class, 'show'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:members,view'])
         ->name('admin.members.show');
 
     Route::get('/admin/{module}', [DashboardController::class, 'admin'])
         ->whereIn('module', ['members', 'payments', 'trainers', 'schedule', 'leads'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:route,view'])
         ->name('admin.module');
 
     Route::post('/admin/members', [MemberController::class, 'store'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:members,create'])
         ->name('admin.members.store');
     Route::put('/admin/members/{member}', [MemberController::class, 'update'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:members,edit'])
         ->name('admin.members.update');
     Route::delete('/admin/members/{member}', [MemberController::class, 'destroy'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:members,delete'])
         ->name('admin.members.destroy');
-    Route::resource('/admin/membership-plans', MembershipPlanController::class)
-        ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
-    Route::resource('/admin/payments', PaymentController::class)
-        ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
-    Route::resource('/admin/attendances', AttendanceController::class)
-        ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
-    Route::resource('/admin/trainers', TrainerController::class)
-        ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
-    Route::resource('/admin/gym-sessions', GymSessionController::class)
-        ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
-    Route::resource('/admin/bookings', BookingController::class)
-        ->only(['store', 'destroy'])
-        ->middleware('role:admin');
+    Route::post('/admin/membership-plans', [MembershipPlanController::class, 'store'])->middleware(['role:admin', 'permission:settings,create'])->name('membership-plans.store');
+    Route::put('/admin/membership-plans/{membership_plan}', [MembershipPlanController::class, 'update'])->middleware(['role:admin', 'permission:settings,edit'])->name('membership-plans.update');
+    Route::delete('/admin/membership-plans/{membership_plan}', [MembershipPlanController::class, 'destroy'])->middleware(['role:admin', 'permission:settings,delete'])->name('membership-plans.destroy');
+    Route::post('/admin/payments', [PaymentController::class, 'store'])->middleware(['role:admin', 'permission:payments,create'])->name('payments.store');
+    Route::put('/admin/payments/{payment}', [PaymentController::class, 'update'])->middleware(['role:admin', 'permission:payments,edit'])->name('payments.update');
+    Route::delete('/admin/payments/{payment}', [PaymentController::class, 'destroy'])->middleware(['role:admin', 'permission:payments,delete'])->name('payments.destroy');
+    Route::post('/admin/attendances', [AttendanceController::class, 'store'])->middleware(['role:admin', 'permission:members,create'])->name('attendances.store');
+    Route::put('/admin/attendances/{attendance}', [AttendanceController::class, 'update'])->middleware(['role:admin', 'permission:members,edit'])->name('attendances.update');
+    Route::delete('/admin/attendances/{attendance}', [AttendanceController::class, 'destroy'])->middleware(['role:admin', 'permission:members,delete'])->name('attendances.destroy');
+    Route::post('/admin/trainers', [TrainerController::class, 'store'])->middleware(['role:admin', 'permission:trainers,create'])->name('trainers.store');
+    Route::put('/admin/trainers/{trainer}', [TrainerController::class, 'update'])->middleware(['role:admin', 'permission:trainers,edit'])->name('trainers.update');
+    Route::delete('/admin/trainers/{trainer}', [TrainerController::class, 'destroy'])->middleware(['role:admin', 'permission:trainers,delete'])->name('trainers.destroy');
+    Route::post('/admin/gym-sessions', [GymSessionController::class, 'store'])->middleware(['role:admin', 'permission:schedule,create'])->name('gym-sessions.store');
+    Route::put('/admin/gym-sessions/{gym_session}', [GymSessionController::class, 'update'])->middleware(['role:admin', 'permission:schedule,edit'])->name('gym-sessions.update');
+    Route::delete('/admin/gym-sessions/{gym_session}', [GymSessionController::class, 'destroy'])->middleware(['role:admin', 'permission:schedule,delete'])->name('gym-sessions.destroy');
+    Route::post('/admin/bookings', [BookingController::class, 'store'])->middleware(['role:admin', 'permission:schedule,create'])->name('bookings.store');
+    Route::delete('/admin/bookings/{booking}', [BookingController::class, 'destroy'])->middleware(['role:admin', 'permission:schedule,delete'])->name('bookings.destroy');
     Route::post('/admin/leads/{lead}/convert', [LeadController::class, 'convert'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:leads,create'])
         ->name('admin.leads.convert');
-    Route::resource('/admin/leads', LeadController::class)
-        ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
+    Route::post('/admin/leads', [LeadController::class, 'store'])->middleware(['role:admin', 'permission:leads,create'])->name('leads.store');
+    Route::put('/admin/leads/{lead}', [LeadController::class, 'update'])->middleware(['role:admin', 'permission:leads,edit'])->name('leads.update');
+    Route::delete('/admin/leads/{lead}', [LeadController::class, 'destroy'])->middleware(['role:admin', 'permission:leads,delete'])->name('leads.destroy');
+
+    Route::resource('/admin/users', UserManagementController::class)->only(['index', 'store', 'update', 'destroy'])
+        ->middleware('role:admin')
+        ->middlewareFor('index', 'permission:users,view')
+        ->middlewareFor('store', 'permission:users,create')
+        ->middlewareFor('update', 'permission:users,edit')
+        ->middlewareFor('destroy', 'permission:users,delete');
+    Route::put('/admin/users/{user}/temporary-password', StaffTemporaryPasswordController::class)
+        ->middleware(['role:admin', 'permission:users,edit', 'throttle:6,1'])
+        ->name('admin.users.temporary-password.update');
+    Route::post('/admin/users/{user}/login', [StaffImpersonationController::class, 'store'])
+        ->middleware(['role:admin', 'permission:users,view'])
+        ->name('admin.users.login');
+    Route::resource('/admin/roles', RoleManagementController::class)->only(['index', 'store', 'update', 'destroy'])
+        ->middleware('role:admin')
+        ->middlewareFor('index', 'permission:roles,view')
+        ->middlewareFor('store', 'permission:roles,create')
+        ->middlewareFor('update', 'permission:roles,edit')
+        ->middlewareFor('destroy', 'permission:roles,delete');
 
     Route::get('/member/dashboard', [DashboardController::class, 'member'])
         ->middleware('role:member')
@@ -145,9 +171,12 @@ Route::middleware(['auth', 'password_changed', 'active_gym', 'gym_resource'])->g
     Route::patch('/settings/profile', [ProfileController::class, 'update'])->name('settings.profile.update');
     Route::put('/settings/password', [ProfileController::class, 'password'])->name('settings.password.update');
     Route::put('/settings/dropdown-options', [DropdownOptionController::class, 'bulkUpdate'])
-        ->middleware('role:admin')
+        ->middleware(['role:admin', 'permission:settings,edit'])
         ->name('dropdown-options.bulk-update');
     Route::resource('/settings/dropdown-options', DropdownOptionController::class)
         ->only(['store', 'update', 'destroy'])
-        ->middleware('role:admin');
+        ->middleware('role:admin')
+        ->middlewareFor('store', 'permission:settings,create')
+        ->middlewareFor('update', 'permission:settings,edit')
+        ->middlewareFor('destroy', 'permission:settings,delete');
 });
